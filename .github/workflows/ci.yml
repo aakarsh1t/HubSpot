@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  # A new push supersedes an in-flight run for the same ref.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22 is the deployment target (Azure App Service LTS); 24 is an early
+        # warning for the next LTS, so an upgrade is never a surprise.
+        node-version: ['22.x', '24.x']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # `npm ci` (not `install`) so the lockfile is authoritative and a
+      # transitive dependency cannot drift between CI and production.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Test with coverage
+        run: npm run test:coverage
+        env:
+          # Configuration is validated at import time by some tests; these keep
+          # the suite hermetic and free of real credentials.
+          NODE_ENV: test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output is runnable
+        run: node --input-type=module -e "import('./dist/index.js').catch(e => { console.error('dist/index.js is not importable:', e); process.exit(1); })"
+        env:
+          NODE_ENV: test
+          MCP_AUTH_ENABLED: 'false'
+          HUBSPOT_AUTH_MODE: private_app
+          HUBSPOT_PRIVATE_APP_TOKEN: fake-hubspot-private-app-token-for-ci
+          # Port 0 lets the OS choose, so CI never collides with a used port.
+          PORT: '0'
+          LOG_LEVEL: silent
+
+      - name: Upload coverage
+        if: matrix.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  security-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fails the build on high/critical advisories only: blocking every PR on
+      # a low-severity transitive advisory trains people to ignore the signal.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

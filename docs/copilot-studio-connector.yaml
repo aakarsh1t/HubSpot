@@ -1,0 +1,65 @@
+# ---------------------------------------------------------------------------
+# Power Platform custom connector definition for this MCP server.
+#
+# This is only needed for Copilot Studio "Option 2" — creating a custom
+# connector through Power Apps. If you use the MCP onboarding wizard in
+# Copilot Studio (Tools → Add a tool → New tool → Model Context Protocol),
+# you do not need this file at all; you just supply the server URL and pick
+# "API key" authentication.
+#
+# Two details are load-bearing and easy to get wrong:
+#
+#   * `x-ms-agentic-protocol: mcp-streamable-1.0` is what tells Power Platform
+#     this is an MCP endpoint using Streamable HTTP rather than an ordinary
+#     REST action. Without it the connector is imported as a plain HTTP call
+#     and the agent will not discover any tools.
+#
+#   * This must be Swagger 2.0. Power Apps custom connectors do not accept
+#     OpenAPI 3.x, so `swagger: '2.0'` is required, not `openapi: 3.x`.
+#
+# Before importing, replace `host` with your App Service hostname.
+# ---------------------------------------------------------------------------
+swagger: '2.0'
+
+info:
+  title: HubSpot MCP Server
+  description: >-
+    Model Context Protocol server exposing HubSpot capabilities to Microsoft
+    Copilot Studio agents. Provides connectivity diagnostics today; CRM tools
+    are added in a later milestone.
+  version: 1.0.0
+
+# Replace with your App Service hostname, e.g. hubspot-mcp-prod.azurewebsites.net
+host: REPLACE-ME.azurewebsites.net
+basePath: /
+schemes:
+  - https
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+# API key authentication. The header name here must match the server's
+# MCP_API_KEY_HEADER setting (default: x-api-key).
+securityDefinitions:
+  api_key:
+    type: apiKey
+    in: header
+    name: x-api-key
+
+security:
+  - api_key: []
+
+paths:
+  /mcp:
+    post:
+      summary: HubSpot MCP Server
+      description: >-
+        Model Context Protocol endpoint over Streamable HTTP. Handles
+        initialize, tools/list, and tools/call for the HubSpot MCP server.
+      operationId: InvokeMCP
+      x-ms-agentic-protocol: mcp-streamable-1.0
+      responses:
+        '200':
+          description: Success
