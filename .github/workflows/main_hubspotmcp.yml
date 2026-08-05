@@ -10,14 +10,24 @@
 #   2. It never set a Startup Command, so App Service fell back on whatever
 #      was already configured in the Portal — which may not exist or may be
 #      stale from an earlier attempt.
-#   3. `.github/workflows/deploy-azure.yml` also triggers on every push to
-#      `main` and deploys the same App Service by a different mechanism
-#      (OIDC login instead of a publish profile). Two workflows racing to
-#      deploy the same target on every push is what "occasionally works,
-#      occasionally doesn't" looks like. That workflow's trigger has been
-#      restricted to manual dispatch so only this one deploys automatically;
-#      switch back once its OIDC secrets (AZURE_CLIENT_ID, AZURE_TENANT_ID,
-#      AZURE_SUBSCRIPTION_ID) are configured, if you prefer that path.
+#   3. A second, now-deleted workflow also triggered on every push to `main`
+#      and deployed this same App Service by a different mechanism (OIDC
+#      login instead of a publish profile). Two workflows racing to deploy
+#      the same target on every push is what "occasionally works,
+#      occasionally doesn't" looks like.
+#
+# One constraint that shaped this file: `azure/webapps-deploy`'s
+# `startup-command` input requires an `azure/login` (Azure CLI) session,
+# because setting it calls the ARM management API, not the Kudu deploy API.
+# It is REJECTED outright when the only auth is a publish profile, as it is
+# here — Deployment Failed, "startup-command is not a valid input ... with
+# publish-profile auth scheme." So the Startup Command cannot be set from
+# this workflow at all; it must be set once in the Portal instead
+# (Configuration → General settings → Startup Command → `node dist/index.js`).
+# Absent that, App Service's Node runtime falls back to `npm start`, which
+# this repo's package.json defines as exactly that same command, so leaving
+# the Portal setting blank also works — setting it explicitly is just one
+# less thing to depend on implicit platform behaviour for.
 
 name: Build and deploy Node.js app to Azure Web App - HubspotMCP
 
@@ -105,9 +115,8 @@ jobs:
           slot-name: 'Production'
           package: deploy
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3187F4A0AD4B4125A35786E0B6FFA94F }}
-          # Explicit rather than relying on whatever the Portal happens to
-          # have configured. dist/index.js is the compiled entry point.
-          startup-command: 'node dist/index.js'
+          # No startup-command here — see the file header. It is set once in
+          # the Portal instead (or left blank to fall back on `npm start`).
 
       # `/health` answers from process state alone — no HubSpot call, no
       # auth required — so it is safe to use as a deploy-succeeded check.
