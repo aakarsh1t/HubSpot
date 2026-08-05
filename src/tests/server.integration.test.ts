@@ -292,7 +292,9 @@ describe('MCP Streamable HTTP endpoint', () => {
     }>();
     const names = body.result.tools.map((tool) => tool.name).sort();
 
-    expect(names).toEqual(expect.arrayContaining(['hubspot_ping', 'hubspot_test_connection', 'mcp_server_info']));
+    expect(names).toEqual(
+      expect.arrayContaining(['hubspot_ping', 'hubspot_test_connection', 'mcp_server_info'])
+    );
     expect(names).toHaveLength(container.toolRegistry.size);
     // Every tool must convert cleanly to a JSON Schema object — this is what
     // Copilot Studio's orchestrator reads, so a conversion failure anywhere in
@@ -360,8 +362,7 @@ describe('MCP Streamable HTTP endpoint', () => {
     // Guards the agreed scope: those modules are later milestones. The filter
     // excludes association tools, which legitimately reference other objects.
     const outOfScope = names.filter(
-      (name) =>
-        /company|companies|deal|ticket/i.test(name) && !name.includes('associat')
+      (name) => /company|companies|deal|ticket/i.test(name) && !name.includes('associat')
     );
 
     expect(outOfScope).toEqual([]);

@@ -57,9 +57,10 @@ interface RestoreResult {
  * { "contactId": "51234567890", "confirmRecreate": true }
  * ```
  */
-export class RestoreContactTool
-  implements ToolDefinition<typeof restoreContactInputSchema, RestoreResult>
-{
+export class RestoreContactTool implements ToolDefinition<
+  typeof restoreContactInputSchema,
+  RestoreResult
+> {
   readonly name = 'hubspot_restore_contact';
   readonly title = 'Restore Archived HubSpot Contact';
   readonly description =

@@ -43,9 +43,10 @@ interface TimelineResult {
  * { "contactId": "51234567890", "types": ["calls", "meetings"], "limitPerType": 50 }
  * ```
  */
-export class GetTimelineTool
-  implements ToolDefinition<typeof getTimelineInputSchema, TimelineResult>
-{
+export class GetTimelineTool implements ToolDefinition<
+  typeof getTimelineInputSchema,
+  TimelineResult
+> {
   readonly name = 'hubspot_get_contact_timeline';
   readonly title = 'Get HubSpot Contact Activity Timeline';
   readonly description =

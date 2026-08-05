@@ -32,9 +32,10 @@ interface ListAssociationsResult {
  * { "contactId": "51234567890", "toObjectType": "deals", "limit": 50 }
  * ```
  */
-export class ListAssociationsTool
-  implements ToolDefinition<typeof listAssociationsInputSchema, ListAssociationsResult>
-{
+export class ListAssociationsTool implements ToolDefinition<
+  typeof listAssociationsInputSchema,
+  ListAssociationsResult
+> {
   readonly name = 'hubspot_list_contact_associations';
   readonly title = 'List HubSpot Contact Associations';
   readonly description =

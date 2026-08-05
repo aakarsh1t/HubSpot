@@ -34,9 +34,10 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
  * }
  * ```
  */
-export class CreateContactTool
-  implements ToolDefinition<typeof createContactInputSchema, CrmObject>
-{
+export class CreateContactTool implements ToolDefinition<
+  typeof createContactInputSchema,
+  CrmObject
+> {
   readonly name = 'hubspot_create_contact';
   readonly title = 'Create HubSpot Contact';
   readonly description =

@@ -40,9 +40,10 @@ interface AssociationMutationResult {
  * }
  * ```
  */
-export class CreateAssociationTool
-  implements ToolDefinition<typeof createAssociationInputSchema, AssociationMutationResult>
-{
+export class CreateAssociationTool implements ToolDefinition<
+  typeof createAssociationInputSchema,
+  AssociationMutationResult
+> {
   readonly name = 'hubspot_associate_contact';
   readonly title = 'Associate HubSpot Contact with a Record';
   readonly description =

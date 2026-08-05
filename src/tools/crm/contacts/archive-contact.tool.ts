@@ -28,9 +28,10 @@ interface ArchiveResult {
  * { "contactId": "51234567890" }
  * ```
  */
-export class ArchiveContactTool
-  implements ToolDefinition<typeof archiveContactInputSchema, ArchiveResult>
-{
+export class ArchiveContactTool implements ToolDefinition<
+  typeof archiveContactInputSchema,
+  ArchiveResult
+> {
   readonly name = 'hubspot_archive_contact';
   readonly title = 'Archive HubSpot Contact';
   readonly description =

@@ -35,9 +35,10 @@ interface AssociationMutationResult {
  * }
  * ```
  */
-export class DeleteAssociationTool
-  implements ToolDefinition<typeof deleteAssociationInputSchema, AssociationMutationResult>
-{
+export class DeleteAssociationTool implements ToolDefinition<
+  typeof deleteAssociationInputSchema,
+  AssociationMutationResult
+> {
   readonly name = 'hubspot_disassociate_contact';
   readonly title = 'Remove HubSpot Contact Association';
   readonly description =

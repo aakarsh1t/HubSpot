@@ -32,9 +32,10 @@ interface ContactPageResult {
  * { "limit": 25, "after": "51234567890" }
  * ```
  */
-export class ListContactsTool
-  implements ToolDefinition<typeof listContactsInputSchema, ContactPageResult>
-{
+export class ListContactsTool implements ToolDefinition<
+  typeof listContactsInputSchema,
+  ContactPageResult
+> {
   readonly name = 'hubspot_list_contacts';
   readonly title = 'List HubSpot Contacts';
   readonly description =
@@ -65,7 +66,10 @@ export class ListContactsTool
     input: ListContactsInput,
     context: ToolExecutionContext
   ): Promise<ContactPageResult> {
-    context.logger.debug({ limit: input.limit, archived: input.archived }, 'Listing HubSpot contacts.');
+    context.logger.debug(
+      { limit: input.limit, archived: input.archived },
+      'Listing HubSpot contacts.'
+    );
 
     const page = await this.contacts.list(input);
 

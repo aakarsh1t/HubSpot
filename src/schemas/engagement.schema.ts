@@ -186,7 +186,9 @@ export const timelineOutputSchema = z.object({
   countsByType: z.record(z.string(), z.number()),
   truncated: z
     .boolean()
-    .describe('True when at least one activity type returned the maximum requested, meaning more exist.'),
+    .describe(
+      'True when at least one activity type returned the maximum requested, meaning more exist.'
+    ),
 });
 
 export type CreateNoteInput = z.output<typeof createNoteInputSchema>;

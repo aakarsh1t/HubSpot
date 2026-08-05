@@ -24,9 +24,10 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
  * { "contactId": "51234567890", "properties": { "jobtitle": null } }
  * ```
  */
-export class UpdateContactTool
-  implements ToolDefinition<typeof updateContactInputSchema, CrmObject>
-{
+export class UpdateContactTool implements ToolDefinition<
+  typeof updateContactInputSchema,
+  CrmObject
+> {
   readonly name = 'hubspot_update_contact';
   readonly title = 'Update HubSpot Contact';
   readonly description =

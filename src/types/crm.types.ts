@@ -50,14 +50,7 @@ export interface BatchError {
  * agent cannot invent an object type and produce a confusing 400.
  */
 export type AssociableObjectType =
-  | 'companies'
-  | 'deals'
-  | 'tickets'
-  | 'notes'
-  | 'tasks'
-  | 'calls'
-  | 'meetings'
-  | 'emails';
+  'companies' | 'deals' | 'tickets' | 'notes' | 'tasks' | 'calls' | 'meetings' | 'emails';
 
 export type EngagementObjectType = 'notes' | 'tasks' | 'calls' | 'meetings' | 'emails';
 

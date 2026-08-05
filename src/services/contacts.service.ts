@@ -1,13 +1,12 @@
 import type { Logger } from 'pino';
-import { DEFAULT_CONTACT_PROPERTIES, CONTACT_TO_OBJECT_TYPE_ID, HUBSPOT_DEFINED } from './association-types.js';
+import {
+  DEFAULT_CONTACT_PROPERTIES,
+  CONTACT_TO_OBJECT_TYPE_ID,
+  HUBSPOT_DEFINED,
+} from './association-types.js';
 import type { HubSpotClient } from '../clients/hubspot.client.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import type {
-  BatchOutcome,
-  CrmObject,
-  CrmPage,
-  PropertyBag,
-} from '../types/crm.types.js';
+import type { BatchOutcome, CrmObject, CrmPage, PropertyBag } from '../types/crm.types.js';
 import type {
   BatchCreateContactsInput,
   BatchReadContactsInput,
@@ -94,7 +93,7 @@ export class ContactsService {
     const body: Record<string, unknown> = { properties: normalizeProperties(input.properties) };
 
     if (input.associations !== undefined && input.associations.length > 0) {
-      body['associations'] = input.associations.map((association) => ({
+      body.associations = input.associations.map((association) => ({
         to: { id: association.toObjectId },
         types: [
           {
@@ -157,10 +156,10 @@ export class ContactsService {
     };
 
     if (options.associations !== undefined && options.associations.length > 0) {
-      query['associations'] = options.associations.join(',');
+      query.associations = options.associations.join(',');
     }
     if (options.archived === true) {
-      query['archived'] = 'true';
+      query.archived = 'true';
     }
 
     const response = await this.client.request<RawCrmObject>({
@@ -199,7 +198,9 @@ export class ContactsService {
       return toCrmObject(response.data);
     } catch (error) {
       if (error instanceof NotFoundError) {
-        throw new NotFoundError(`No HubSpot contact exists with the email address "${options.email}".`);
+        throw new NotFoundError(
+          `No HubSpot contact exists with the email address "${options.email}".`
+        );
       }
       throw error;
     }
@@ -214,7 +215,7 @@ export class ContactsService {
     };
 
     if (input.after !== undefined) {
-      query['after'] = input.after;
+      query.after = input.after;
     }
 
     const response = await this.client.request<RawPage>({
@@ -253,16 +254,16 @@ export class ContactsService {
     };
 
     if (input.query !== undefined) {
-      body['query'] = input.query;
+      body.query = input.query;
     }
     if (input.after !== undefined) {
-      body['after'] = input.after;
+      body.after = input.after;
     }
     if (input.sorts !== undefined && input.sorts.length > 0) {
-      body['sorts'] = input.sorts;
+      body.sorts = input.sorts;
     }
     if (input.filterGroups !== undefined && input.filterGroups.length > 0) {
-      body['filterGroups'] = input.filterGroups.map((group) => ({
+      body.filterGroups = input.filterGroups.map((group) => ({
         filters: group.filters.map(toHubSpotFilter),
       }));
     }
@@ -349,7 +350,10 @@ export class ContactsService {
   async recreateFromArchive(options: {
     readonly contactId: string;
     readonly properties?: readonly string[] | undefined;
-  }): Promise<{ readonly created: CrmObject; readonly sourceProperties: Record<string, string | null> }> {
+  }): Promise<{
+    readonly created: CrmObject;
+    readonly sourceProperties: Record<string, string | null>;
+  }> {
     const archived = await this.getById({
       contactId: options.contactId,
       properties: options.properties ?? DEFAULT_CONTACT_PROPERTIES,
@@ -438,7 +442,7 @@ export class ContactsService {
     };
 
     if (input.idProperty === 'email') {
-      body['idProperty'] = 'email';
+      body.idProperty = 'email';
     }
 
     const response = await this.client.request<RawBatchResponse>({
@@ -495,9 +499,9 @@ function toHubSpotFilter(filter: {
     operator: filter.operator,
   };
 
-  if (filter.value !== undefined) mapped['value'] = filter.value;
-  if (filter.values !== undefined) mapped['values'] = filter.values;
-  if (filter.highValue !== undefined) mapped['highValue'] = filter.highValue;
+  if (filter.value !== undefined) mapped.value = filter.value;
+  if (filter.values !== undefined) mapped.values = filter.values;
+  if (filter.highValue !== undefined) mapped.highValue = filter.highValue;
 
   return mapped;
 }

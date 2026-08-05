@@ -41,9 +41,10 @@ interface MergeResult {
  * }
  * ```
  */
-export class MergeContactsTool
-  implements ToolDefinition<typeof mergeContactsInputSchema, MergeResult>
-{
+export class MergeContactsTool implements ToolDefinition<
+  typeof mergeContactsInputSchema,
+  MergeResult
+> {
   readonly name = 'hubspot_merge_contacts';
   readonly title = 'Merge HubSpot Contacts';
   readonly description =

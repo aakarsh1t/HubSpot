@@ -48,9 +48,10 @@ interface GetContactResult {
  * { "contactId": "51234567890", "archived": true }
  * ```
  */
-export class GetContactTool
-  implements ToolDefinition<typeof getContactInputSchema, GetContactResult>
-{
+export class GetContactTool implements ToolDefinition<
+  typeof getContactInputSchema,
+  GetContactResult
+> {
   readonly name = 'hubspot_get_contact';
   readonly title = 'Get HubSpot Contact by ID';
   readonly description =

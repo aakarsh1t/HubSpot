@@ -66,7 +66,7 @@ export class AssociationsService {
   }): Promise<CrmPage<AssociationRef>> {
     const query: Record<string, string | number> = { limit: options.limit };
     if (options.after !== undefined) {
-      query['after'] = options.after;
+      query.after = options.after;
     }
 
     const response = await this.client.request<RawAssociationPage>({

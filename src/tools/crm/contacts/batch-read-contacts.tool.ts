@@ -26,9 +26,10 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
  * { "contactIds": ["a@acme.com", "b@acme.com"], "idProperty": "email" }
  * ```
  */
-export class BatchReadContactsTool
-  implements ToolDefinition<typeof batchReadContactsInputSchema, BatchOutcome<CrmObject>>
-{
+export class BatchReadContactsTool implements ToolDefinition<
+  typeof batchReadContactsInputSchema,
+  BatchOutcome<CrmObject>
+> {
   readonly name = 'hubspot_batch_read_contacts';
   readonly title = 'Batch Read HubSpot Contacts';
   readonly description =

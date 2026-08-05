@@ -41,7 +41,7 @@ export class FakeHubSpotClient {
       method: options.method,
       path: options.path,
       body: options.body,
-      query: options.query as Record<string, unknown> | undefined,
+      query: options.query,
       retryable: options.retryable,
     });
 

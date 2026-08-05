@@ -32,7 +32,7 @@ describe('EngagementsService.createNote', () => {
     expect(request.path).toBe('/crm/v3/objects/notes');
 
     const body = request.body as EngagementBody;
-    expect(body.properties['hs_note_body']).toBe('Called about pricing.');
+    expect(body.properties.hs_note_body).toBe('Called about pricing.');
     // Two calls would strand an orphaned note if the second failed.
     expect(body.associations[0]?.to.id).toBe('512');
   });
@@ -57,7 +57,7 @@ describe('EngagementsService.createNote', () => {
     const before = Date.now();
     await service.createNote({ contactId: '512', body: 'x' });
 
-    const timestamp = (client.lastRequest().body as EngagementBody).properties['hs_timestamp'];
+    const timestamp = (client.lastRequest().body as EngagementBody).properties.hs_timestamp;
     expect(Date.parse(timestamp!)).toBeGreaterThanOrEqual(before - 1_000);
     // Replaying would duplicate a note on a customer record.
     expect(client.lastRequest().retryable).toBe(false);
@@ -73,7 +73,7 @@ describe('EngagementsService.createNote', () => {
       timestamp: '2026-08-01T09:30:00.000Z',
     });
 
-    expect((client.lastRequest().body as EngagementBody).properties['hs_timestamp']).toBe(
+    expect((client.lastRequest().body as EngagementBody).properties.hs_timestamp).toBe(
       '2026-08-01T09:30:00.000Z'
     );
   });
@@ -95,10 +95,10 @@ describe('EngagementsService.createTask', () => {
 
     const properties = (client.lastRequest().body as EngagementBody).properties;
     // HubSpot models a task due date as hs_timestamp, which is unintuitive.
-    expect(properties['hs_timestamp']).toBe('2026-08-12T17:00:00.000Z');
-    expect(properties['hs_task_subject']).toBe('Send deck');
-    expect(properties['hs_task_priority']).toBe('HIGH');
-    expect(properties['hs_task_type']).toBe('EMAIL');
+    expect(properties.hs_timestamp).toBe('2026-08-12T17:00:00.000Z');
+    expect(properties.hs_task_subject).toBe('Send deck');
+    expect(properties.hs_task_priority).toBe('HIGH');
+    expect(properties.hs_task_type).toBe('EMAIL');
   });
 
   it('uses association type 204 (task to contact)', async () => {
@@ -150,8 +150,8 @@ describe('EngagementsService.logCall', () => {
     });
 
     const properties = (client.lastRequest().body as EngagementBody).properties;
-    expect(properties['hs_call_duration']).toBe('1800000');
-    expect(properties['hs_call_direction']).toBe('OUTBOUND');
+    expect(properties.hs_call_duration).toBe('1800000');
+    expect(properties.hs_call_direction).toBe('OUTBOUND');
   });
 
   it('uses association type 194 (call to contact)', async () => {
@@ -186,9 +186,9 @@ describe('EngagementsService.createMeeting', () => {
 
     const properties = (client.lastRequest().body as EngagementBody).properties;
     // Matching start time is what places the entry correctly on the timeline.
-    expect(properties['hs_timestamp']).toBe('2026-08-12T14:00:00.000Z');
-    expect(properties['hs_meeting_start_time']).toBe('2026-08-12T14:00:00.000Z');
-    expect(properties['hs_meeting_end_time']).toBe('2026-08-12T15:00:00.000Z');
+    expect(properties.hs_timestamp).toBe('2026-08-12T14:00:00.000Z');
+    expect(properties.hs_meeting_start_time).toBe('2026-08-12T14:00:00.000Z');
+    expect(properties.hs_meeting_end_time).toBe('2026-08-12T15:00:00.000Z');
   });
 });
 
@@ -206,9 +206,9 @@ describe('EngagementsService.logEmail', () => {
     });
 
     const properties = (client.lastRequest().body as EngagementBody).properties;
-    expect(properties['hs_email_subject']).toBe('Pricing');
-    expect(properties['hs_email_text']).toBe('Here you go');
-    expect(properties['hs_email_direction']).toBe('INCOMING_EMAIL');
+    expect(properties.hs_email_subject).toBe('Pricing');
+    expect(properties.hs_email_text).toBe('Here you go');
+    expect(properties.hs_email_direction).toBe('INCOMING_EMAIL');
   });
 });
 
@@ -238,7 +238,7 @@ describe('EngagementsService.getTimeline', () => {
     expect(timeline.entries).toHaveLength(2);
     expect(timeline.entries[0]?.body).toBe('new');
     expect(timeline.entries[1]?.body).toBe('old');
-    expect(timeline.countsByType['notes']).toBe(2);
+    expect(timeline.countsByType.notes).toBe(2);
   });
 
   it('converts epoch-millisecond timestamps to ISO 8601', async () => {
@@ -332,7 +332,7 @@ describe('EngagementsService.getTimeline', () => {
     expect(entry.title).toBe('Discovery');
     expect(entry.body).toBe('notes');
     expect(entry.ownerId).toBe('77');
-    expect(entry.details['hs_call_duration']).toBe('1800000');
+    expect(entry.details.hs_call_duration).toBe('1800000');
   });
 });
 

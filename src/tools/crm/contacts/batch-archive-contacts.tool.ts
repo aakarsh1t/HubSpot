@@ -36,9 +36,10 @@ interface BatchArchiveResult {
  * { "contactIds": ["51234567890", "51234567891"], "confirmArchive": true }
  * ```
  */
-export class BatchArchiveContactsTool
-  implements ToolDefinition<typeof batchArchiveContactsInputSchema, BatchArchiveResult>
-{
+export class BatchArchiveContactsTool implements ToolDefinition<
+  typeof batchArchiveContactsInputSchema,
+  BatchArchiveResult
+> {
   readonly name = 'hubspot_batch_archive_contacts';
   readonly title = 'Batch Archive HubSpot Contacts';
   readonly description =

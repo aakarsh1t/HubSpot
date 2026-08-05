@@ -92,7 +92,9 @@ export const getContactInputSchema = z.object({
   contactId: contactIdSchema,
   properties: propertyListSchema,
   includeAssociations: z
-    .array(z.enum(['companies', 'deals', 'tickets', 'notes', 'tasks', 'calls', 'meetings', 'emails']))
+    .array(
+      z.enum(['companies', 'deals', 'tickets', 'notes', 'tasks', 'calls', 'meetings', 'emails'])
+    )
     .max(8)
     .optional()
     .describe('Object types whose associated record IDs should be returned alongside the contact.'),
@@ -166,7 +168,9 @@ const searchFilterSchema = z
     value: z
       .union([z.string(), z.number(), z.boolean()])
       .optional()
-      .describe('Single comparison value. Required for all operators except IN/NOT_IN and HAS_PROPERTY/NOT_HAS_PROPERTY.'),
+      .describe(
+        'Single comparison value. Required for all operators except IN/NOT_IN and HAS_PROPERTY/NOT_HAS_PROPERTY.'
+      ),
     values: z
       .array(z.union([z.string(), z.number()]))
       .max(100)
@@ -248,7 +252,12 @@ export const searchContactsInputSchema = z
       .max(200)
       .default(25)
       .describe('Results per page (1-200). Defaults to 25.'),
-    after: z.string().trim().min(1).optional().describe('Pagination cursor from a previous search.'),
+    after: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe('Pagination cursor from a previous search.'),
   })
   .superRefine((input, ctx) => {
     const totalFilters = (input.filterGroups ?? []).reduce(

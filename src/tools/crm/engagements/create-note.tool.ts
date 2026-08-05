@@ -43,9 +43,10 @@ interface EngagementResult {
  * }
  * ```
  */
-export class CreateNoteTool
-  implements ToolDefinition<typeof createNoteInputSchema, EngagementResult>
-{
+export class CreateNoteTool implements ToolDefinition<
+  typeof createNoteInputSchema,
+  EngagementResult
+> {
   readonly name = 'hubspot_create_contact_note';
   readonly title = 'Add Note to HubSpot Contact';
   readonly description =

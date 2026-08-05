@@ -35,14 +35,15 @@ interface EngagementResult {
  * }
  * ```
  */
-export class CreateTaskTool
-  implements ToolDefinition<typeof createTaskInputSchema, EngagementResult>
-{
+export class CreateTaskTool implements ToolDefinition<
+  typeof createTaskInputSchema,
+  EngagementResult
+> {
   readonly name = 'hubspot_create_contact_task';
   readonly title = 'Create HubSpot Task for Contact';
   readonly description =
     'Create a task associated with a HubSpot contact. Tasks are actionable to-dos that appear ' +
-    'in the assigned user\'s HubSpot task queue and on the contact timeline. Set dueDate as an ' +
+    "in the assigned user's HubSpot task queue and on the contact timeline. Set dueDate as an " +
     'ISO 8601 timestamp, status to NOT_STARTED or COMPLETED, priority to LOW, MEDIUM, or HIGH, ' +
     'and taskType to EMAIL, CALL, or TODO. Assign the task by passing the HubSpot owner ID. ' +
     'Use this for future work; use hubspot_create_contact_note to record something that already ' +

@@ -103,7 +103,7 @@ describe('ContactsService reads', () => {
 
     await service.getById({ contactId: '512' });
 
-    const properties = String(client.lastRequest().query?.['properties']);
+    const properties = String(client.lastRequest().query?.properties);
     expect(properties).toContain('email');
     expect(properties).toContain('lifecyclestage');
   });
@@ -114,7 +114,7 @@ describe('ContactsService reads', () => {
 
     const contact = await service.getById({ contactId: '512', archived: true });
 
-    expect(client.lastRequest().query?.['archived']).toBe('true');
+    expect(client.lastRequest().query?.archived).toBe('true');
     expect(contact.archived).toBe(true);
   });
 
@@ -122,7 +122,14 @@ describe('ContactsService reads', () => {
     const { service, client } = buildService();
     client.respondWith({
       ...contactResponse,
-      associations: { companies: { results: [{ id: '7801', type: 'x' }, { id: '7802', type: 'x' }] } },
+      associations: {
+        companies: {
+          results: [
+            { id: '7801', type: 'x' },
+            { id: '7802', type: 'x' },
+          ],
+        },
+      },
     });
 
     const contact = await service.getById({ contactId: '512', associations: ['companies'] });
@@ -139,7 +146,7 @@ describe('ContactsService reads', () => {
     const request = client.lastRequest();
     expect(request.method).toBe('GET');
     // An indexed alternate-key read, not the separately rate-limited search API.
-    expect(request.query?.['idProperty']).toBe('email');
+    expect(request.query?.idProperty).toBe('email');
     expect(request.path).toContain('jane%40acme.com');
   });
 
@@ -206,7 +213,7 @@ describe('ContactsService.search', () => {
     await service.search({ query: 'acme', limit: 10 });
 
     const body = client.lastRequest().body as Record<string, unknown>;
-    expect(body['query']).toBe('acme');
+    expect(body.query).toBe('acme');
     expect(body).not.toHaveProperty('filterGroups');
     expect(body).not.toHaveProperty('after');
   });
@@ -292,7 +299,7 @@ describe('ContactsService.recreateFromArchive', () => {
 
     const { created } = await service.recreateFromArchive({ contactId: '512' });
 
-    expect(client.requests[0]?.query?.['archived']).toBe('true');
+    expect(client.requests[0]?.query?.archived).toBe('true');
     expect(client.requests[1]?.method).toBe('POST');
     // A NEW id — HubSpot cannot restore in place.
     expect(created.id).toBe('999');

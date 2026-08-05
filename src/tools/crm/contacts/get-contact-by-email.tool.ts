@@ -26,9 +26,10 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
  * { "email": "jane.doe@acme.com", "properties": ["email", "firstname", "lifecyclestage"] }
  * ```
  */
-export class GetContactByEmailTool
-  implements ToolDefinition<typeof getContactByEmailInputSchema, CrmObject>
-{
+export class GetContactByEmailTool implements ToolDefinition<
+  typeof getContactByEmailInputSchema,
+  CrmObject
+> {
   readonly name = 'hubspot_get_contact_by_email';
   readonly title = 'Get HubSpot Contact by Email';
   readonly description =

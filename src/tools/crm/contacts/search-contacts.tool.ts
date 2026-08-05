@@ -56,9 +56,10 @@ interface SearchResult {
  * ]}]}
  * ```
  */
-export class SearchContactsTool
-  implements ToolDefinition<typeof searchContactsInputSchema, SearchResult>
-{
+export class SearchContactsTool implements ToolDefinition<
+  typeof searchContactsInputSchema,
+  SearchResult
+> {
   readonly name = 'hubspot_search_contacts';
   readonly title = 'Search HubSpot Contacts';
   readonly description =

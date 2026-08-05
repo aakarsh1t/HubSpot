@@ -27,9 +27,10 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
  * }
  * ```
  */
-export class BatchCreateContactsTool
-  implements ToolDefinition<typeof batchCreateContactsInputSchema, BatchOutcome<CrmObject>>
-{
+export class BatchCreateContactsTool implements ToolDefinition<
+  typeof batchCreateContactsInputSchema,
+  BatchOutcome<CrmObject>
+> {
   readonly name = 'hubspot_batch_create_contacts';
   readonly title = 'Batch Create HubSpot Contacts';
   readonly description =

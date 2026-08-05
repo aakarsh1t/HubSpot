@@ -246,7 +246,7 @@ export class EngagementsService {
       engagementId: response.data.id,
       engagementType: type,
       contactId,
-      timestamp: properties['hs_timestamp'] ?? null,
+      timestamp: properties.hs_timestamp ?? null,
     };
   }
 
@@ -307,10 +307,10 @@ function toTimelineEntry(type: EngagementObjectType, raw: RawEngagement): Timeli
   return {
     id: raw.id,
     type,
-    timestamp: normalizeTimestamp(properties['hs_timestamp'] ?? null),
+    timestamp: normalizeTimestamp(properties.hs_timestamp ?? null),
     title: titleProperty === null ? null : (properties[titleProperty] ?? null),
     body: properties[bodyProperty] ?? null,
-    ownerId: properties['hubspot_owner_id'] ?? null,
+    ownerId: properties.hubspot_owner_id ?? null,
     details,
   };
 }

@@ -35,9 +35,10 @@ interface DeleteResult {
  * { "contactId": "51234567890", "confirmPermanentDeletion": true }
  * ```
  */
-export class DeleteContactTool
-  implements ToolDefinition<typeof deleteContactInputSchema, DeleteResult>
-{
+export class DeleteContactTool implements ToolDefinition<
+  typeof deleteContactInputSchema,
+  DeleteResult
+> {
   readonly name = 'hubspot_delete_contact_permanently';
   readonly title = 'Permanently Delete HubSpot Contact (GDPR)';
   readonly description =

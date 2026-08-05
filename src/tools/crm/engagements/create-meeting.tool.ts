@@ -37,9 +37,10 @@ interface EngagementResult {
  * }
  * ```
  */
-export class CreateMeetingTool
-  implements ToolDefinition<typeof createMeetingInputSchema, EngagementResult>
-{
+export class CreateMeetingTool implements ToolDefinition<
+  typeof createMeetingInputSchema,
+  EngagementResult
+> {
   readonly name = 'hubspot_create_contact_meeting';
   readonly title = 'Create HubSpot Meeting for Contact';
   readonly description =
