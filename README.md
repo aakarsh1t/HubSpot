@@ -210,12 +210,13 @@ Store secrets as [Key Vault references](https://learn.microsoft.com/azure/app-se
 
 Platform configuration:
 
-- **Startup command**: `node dist/index.js`
+- **Startup command**: `node dist/index.js` — set explicitly by the deploy workflow on every run; no need to also set it in the Portal
 - **Health check path**: `/health`
 - **Always On**: enabled (prevents cold-start probe failures)
-- `SCM_DO_BUILD_DURING_DEPLOYMENT=false` — CI ships a compiled artifact with production `node_modules`
+- **SCM Basic Auth Publishing Credentials**: enabled (Configuration → General settings) — required for the publish-profile deploy below; Azure defaults this to off on newer plans
+- `SCM_DO_BUILD_DURING_DEPLOYMENT=false` — **required**, not optional: the workflow ships a prebuilt artifact (`dist/` + pruned `node_modules` only, no `src/`), so if Oryx tries to rebuild on top of it there is nothing left to build and the deploy fails
 
-The [deploy workflow](.github/workflows/deploy-azure.yml) authenticates with **OIDC federated credentials** (no publish profile or client secret stored in GitHub), builds, prunes dev dependencies, deploys, then smoke-tests `/health` before going green. Set repository or environment variables `AZURE_WEBAPP_NAME`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and optionally `AZURE_WEBAPP_SLOT`. The Azure IDs may also be stored as GitHub secrets if your organization prefers that convention.
+The [deploy workflow](.github/workflows/main_hubspotmcp.yml) runs on every push to `main`: typecheck, lint, test, build, prune dev dependencies, deploy via publish profile, then smoke-test `/health` before going green. The publish profile is stored as the `AZUREAPPSERVICE_PUBLISHPROFILE_*` repository secret that Azure Portal's Deployment Center creates when you connect the App Service to this repo.
 
 Deploy to a **staging slot and swap** for zero-downtime releases and instant rollback.
 
@@ -226,7 +227,7 @@ On `SIGTERM`, shutdown drains in order: fail readiness → close the listener so
 ## Testing
 
 ```bash
-npm test              # 136 tests
+npm test              # 251 tests
 npm run test:coverage
 ```
 

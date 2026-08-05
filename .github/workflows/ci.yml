@@ -64,16 +64,38 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify build output is runnable
-        run: node --input-type=module -e "import('./dist/index.js').catch(e => { console.error('dist/index.js is not importable:', e); process.exit(1); })"
-        env:
-          NODE_ENV: test
-          MCP_AUTH_ENABLED: 'false'
-          HUBSPOT_AUTH_MODE: private_app
-          HUBSPOT_PRIVATE_APP_TOKEN: fake-hubspot-private-app-token-for-ci
-          # Port 0 lets the OS choose, so CI never collides with a used port.
-          PORT: '0'
-          LOG_LEVEL: silent
+      # Boots the actual compiled artifact and confirms it answers /health,
+      # rather than merely importing it. An import-only check would not exit
+      # on success either: the HTTP listener keeps the event loop alive, so a
+      # bare `import()` would leave this step hanging until the job timeout
+      # instead of passing. Starting it as a background process and polling
+      # is what makes this both a real check and one that terminates.
+      - name: Verify build output boots and serves traffic
+        run: |
+          NODE_ENV=test \
+          MCP_AUTH_ENABLED=false \
+          HUBSPOT_AUTH_MODE=private_app \
+          HUBSPOT_PRIVATE_APP_TOKEN=fake-hubspot-private-app-token-for-ci \
+          PORT=8099 \
+          LOG_LEVEL=silent \
+          node dist/index.js &
+          SERVER_PID=$!
+
+          # Guarantees the background server is killed however this step
+          # ends — success, failure, or the step timeout — so it can never
+          # leak a listening process into the rest of the job.
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          for attempt in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:8099/health > /dev/null; then
+              echo "Boot verification succeeded after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 0.5
+          done
+
+          echo "dist/index.js did not become healthy within the timeout." >&2
+          exit 1
 
       - name: Upload coverage
         if: matrix.node-version == '22.x'
