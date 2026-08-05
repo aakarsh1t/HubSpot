@@ -1,8 +1,19 @@
 name: Deploy to Azure App Service
 
+# NOTE: auto-deploy-on-push is disabled here on purpose. Azure Portal's own
+# Deployment Center generated .github/workflows/main_hubspotmcp.yml, which
+# already triggers on every push to main and deploys this same App Service
+# via a publish profile. Two workflows racing to deploy the same target on
+# every push produces exactly the "works sometimes" symptom that motivated
+# this comment. This workflow also requires AZURE_CLIENT_ID, AZURE_TENANT_ID,
+# and AZURE_SUBSCRIPTION_ID as repository secrets (OIDC federated login),
+# which is a separate setup step from the App Settings in .env.example.
+#
+# To make this the deploy path instead: configure those three secrets, set
+# them up as a federated credential on an Entra ID app registration, disable
+# main_hubspotmcp.yml (delete it or strip its push trigger the same way),
+# and re-add `push: { branches: [main] }` below.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
