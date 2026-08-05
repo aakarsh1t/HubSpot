@@ -215,7 +215,7 @@ Platform configuration:
 - **Always On**: enabled (prevents cold-start probe failures)
 - `SCM_DO_BUILD_DURING_DEPLOYMENT=false` — CI ships a compiled artifact with production `node_modules`
 
-The [deploy workflow](.github/workflows/deploy-azure.yml) authenticates with **OIDC federated credentials** (no publish profile or client secret stored in GitHub), builds, prunes dev dependencies, deploys, then smoke-tests `/health` before going green. Set repository variables `AZURE_WEBAPP_NAME` and optionally `AZURE_WEBAPP_SLOT`, and secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
+The [deploy workflow](.github/workflows/deploy-azure.yml) authenticates with **OIDC federated credentials** (no publish profile or client secret stored in GitHub), builds, prunes dev dependencies, deploys, then smoke-tests `/health` before going green. Set repository or environment variables `AZURE_WEBAPP_NAME`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and optionally `AZURE_WEBAPP_SLOT`. The Azure IDs may also be stored as GitHub secrets if your organization prefers that convention.
 
 Deploy to a **staging slot and swap** for zero-downtime releases and instant rollback.
 
