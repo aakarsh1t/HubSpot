@@ -72,17 +72,17 @@ export class CreateTaskTool implements ToolDefinition<
       'Creating task on HubSpot contact.'
     );
 
-    const result = await this.engagements.createTask(input);
+    const result = await this.engagements.createTask('contacts', input.contactId, input);
 
     return {
       success: true,
       engagementId: result.engagementId,
       engagementType: result.engagementType,
-      contactId: result.contactId,
+      contactId: result.objectId,
       timestamp: result.timestamp,
       message:
         `Task ${result.engagementId} ("${input.subject}") created for contact ` +
-        `${result.contactId}, due ${result.timestamp ?? 'now'}.`,
+        `${result.objectId}, due ${result.timestamp ?? 'now'}.`,
     };
   }
 }

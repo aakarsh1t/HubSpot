@@ -4,9 +4,12 @@ import type { HubSpotClient } from '../clients/hubspot.client.js';
 import type { CircuitBreaker } from '../middleware/circuit-breaker.js';
 import type { TokenBucketRateLimiter } from '../middleware/rate-limiter.js';
 import type { AssociationsService } from '../services/associations.service.js';
+import type { CompaniesService } from '../services/companies.service.js';
 import type { ContactsService } from '../services/contacts.service.js';
+import type { DealsService } from '../services/deals.service.js';
 import type { EngagementsService } from '../services/engagements.service.js';
 import type { HubSpotHealthService } from '../services/hubspot-health.service.js';
+import type { PropertiesService } from '../services/properties.service.js';
 import type { ToolRegistry } from '../tools/tool.registry.js';
 import type { HubSpotTokenProvider, TokenStore } from '../types/auth.types.js';
 import type { AppConfig } from '../types/config.types.js';
@@ -36,8 +39,11 @@ export interface Container {
   readonly hubspotClient: HubSpotClient;
   readonly healthService: HubSpotHealthService;
   readonly contactsService: ContactsService;
+  readonly companiesService: CompaniesService;
+  readonly dealsService: DealsService;
   readonly associationsService: AssociationsService;
   readonly engagementsService: EngagementsService;
+  readonly propertiesService: PropertiesService;
   readonly toolRegistry: ToolRegistry;
   /** Releases held resources. Idempotent. */
   dispose(): Promise<void>;

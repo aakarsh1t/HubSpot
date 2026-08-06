@@ -75,15 +75,15 @@ export class CreateNoteTool implements ToolDefinition<
   async execute(input: CreateNoteInput, context: ToolExecutionContext): Promise<EngagementResult> {
     context.logger.info({ contactId: input.contactId }, 'Creating note on HubSpot contact.');
 
-    const result = await this.engagements.createNote(input);
+    const result = await this.engagements.createNote('contacts', input.contactId, input);
 
     return {
       success: true,
       engagementId: result.engagementId,
       engagementType: result.engagementType,
-      contactId: result.contactId,
+      contactId: result.objectId,
       timestamp: result.timestamp,
-      message: `Note ${result.engagementId} added to contact ${result.contactId}.`,
+      message: `Note ${result.engagementId} added to contact ${result.objectId}.`,
     };
   }
 }

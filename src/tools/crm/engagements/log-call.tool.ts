@@ -66,15 +66,15 @@ export class LogCallTool implements ToolDefinition<typeof logCallInputSchema, En
       'Logging call on HubSpot contact.'
     );
 
-    const result = await this.engagements.logCall(input);
+    const result = await this.engagements.logCall('contacts', input.contactId, input);
 
     return {
       success: true,
       engagementId: result.engagementId,
       engagementType: result.engagementType,
-      contactId: result.contactId,
+      contactId: result.objectId,
       timestamp: result.timestamp,
-      message: `Call ${result.engagementId} ("${input.title}") logged on contact ${result.contactId}.`,
+      message: `Call ${result.engagementId} ("${input.title}") logged on contact ${result.objectId}.`,
     };
   }
 }

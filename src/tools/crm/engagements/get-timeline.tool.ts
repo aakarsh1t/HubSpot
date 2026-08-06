@@ -80,7 +80,7 @@ export class GetTimelineTool implements ToolDefinition<
       'Building HubSpot contact activity timeline.'
     );
 
-    const timeline = await this.engagements.getTimeline(input);
+    const timeline = await this.engagements.getTimeline('contacts', input.contactId, input);
 
     return {
       contactId: input.contactId,

@@ -7,9 +7,12 @@ import { HubSpotClient } from '../clients/hubspot.client.js';
 import { CircuitBreaker } from '../middleware/circuit-breaker.js';
 import { TokenBucketRateLimiter } from '../middleware/rate-limiter.js';
 import { AssociationsService } from '../services/associations.service.js';
+import { CompaniesService } from '../services/companies.service.js';
 import { ContactsService } from '../services/contacts.service.js';
+import { DealsService } from '../services/deals.service.js';
 import { EngagementsService } from '../services/engagements.service.js';
 import { HubSpotHealthService } from '../services/hubspot-health.service.js';
+import { PropertiesService } from '../services/properties.service.js';
 import { createTools } from '../tools/index.js';
 import { ToolRegistry } from '../tools/tool.registry.js';
 import { createLogger } from '../utils/logger.js';
@@ -81,9 +84,16 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
 
   // CRM services. Each depends only on the HubSpot client, so every one of
   // them is unit-testable against a fake without touching the network.
+  // Contacts, Companies, and Deals each compose CrmObjectService for the
+  // generic CRUD/search/batch/merge/restore behaviour that is identical
+  // across HubSpot's Objects API regardless of object type; Associations,
+  // Engagements, and Properties are shared outright across all three.
   const contactsService = new ContactsService({ client: hubspotClient, logger });
+  const companiesService = new CompaniesService({ client: hubspotClient, logger });
+  const dealsService = new DealsService({ client: hubspotClient, logger });
   const associationsService = new AssociationsService({ client: hubspotClient, logger });
   const engagementsService = new EngagementsService({ client: hubspotClient, logger });
+  const propertiesService = new PropertiesService({ client: hubspotClient, logger });
 
   const toolRegistry = new ToolRegistry(logger);
   toolRegistry.registerAll(
@@ -91,8 +101,11 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
       config,
       healthService,
       contactsService,
+      companiesService,
+      dealsService,
       associationsService,
       engagementsService,
+      propertiesService,
       registry: toolRegistry,
     })
   );
@@ -110,8 +123,11 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
     hubspotClient,
     healthService,
     contactsService,
+    companiesService,
+    dealsService,
     associationsService,
     engagementsService,
+    propertiesService,
     toolRegistry,
 
     dispose(): Promise<void> {

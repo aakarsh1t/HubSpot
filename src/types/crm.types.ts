@@ -1,6 +1,6 @@
 /**
- * CRM domain types shared by the contacts, associations, and engagement
- * services.
+ * CRM domain types shared by the contacts, companies, deals, associations,
+ * engagements, and properties services.
  */
 
 /** A HubSpot property value as accepted on the wire. */
@@ -44,17 +44,36 @@ export interface BatchError {
 }
 
 /**
- * CRM object types this server can associate contacts with.
+ * The primary CRM objects this server manages directly (as opposed to
+ * `tickets`, which it only associates *with*, since a Tickets module is not
+ * implemented). Shared by every generic service — `CrmObjectService`,
+ * `AssociationsService`, `EngagementsService`, `PropertiesService` — so
+ * supporting a fourth object type in future is one union member, not a
+ * rewrite of any of them.
+ */
+export type CrmObjectType = 'contacts' | 'companies' | 'deals';
+
+/**
+ * CRM object types any of the primary objects can be associated with.
  *
- * Restricted to the set we have verified association type IDs for, so an
- * agent cannot invent an object type and produce a confusing 400.
+ * Restricted to the set we have verified association type IDs for (see
+ * `association-types.ts`), so an agent cannot invent an object type and
+ * produce a confusing 400 — or worse, a silently wrong association direction.
  */
 export type AssociableObjectType =
-  'companies' | 'deals' | 'tickets' | 'notes' | 'tasks' | 'calls' | 'meetings' | 'emails';
+  | 'contacts'
+  | 'companies'
+  | 'deals'
+  | 'tickets'
+  | 'notes'
+  | 'tasks'
+  | 'calls'
+  | 'meetings'
+  | 'emails';
 
 export type EngagementObjectType = 'notes' | 'tasks' | 'calls' | 'meetings' | 'emails';
 
-/** A single association between a contact and another record. */
+/** A single association between a CRM object and another record. */
 export interface AssociationRef {
   readonly toObjectId: string;
   readonly toObjectType: string;
@@ -65,7 +84,7 @@ export interface AssociationRef {
   }[];
 }
 
-/** One entry in a contact's aggregated activity timeline. */
+/** One entry in an object's aggregated activity timeline. */
 export interface TimelineEntry {
   readonly id: string;
   readonly type: EngagementObjectType;
@@ -76,4 +95,78 @@ export interface TimelineEntry {
   readonly ownerId: string | null;
   /** Type-specific fields (call duration, task status, meeting outcome, …). */
   readonly details: Record<string, string | null>;
+}
+
+/** One historical value of a property, as returned by `propertiesWithHistory`. */
+export interface PropertyHistoryEntry {
+  readonly value: string | null;
+  /** ISO 8601 timestamp of when this value became active. */
+  readonly timestamp: string | null;
+  readonly sourceType: string | null;
+  readonly sourceId: string | null;
+  readonly sourceLabel: string | null;
+  readonly updatedByUserId: number | null;
+}
+
+/** Full property-value history for one record, keyed by property name. */
+export interface PropertyHistoryResult {
+  readonly objectId: string;
+  readonly history: Readonly<Record<string, readonly PropertyHistoryEntry[]>>;
+}
+
+/** HubSpot's allowed data types for a custom property definition. */
+export type PropertyType = 'string' | 'number' | 'date' | 'datetime' | 'bool' | 'enumeration';
+
+/** HubSpot's allowed input widgets for a custom property definition. */
+export type PropertyFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'booleancheckbox'
+  | 'date'
+  | 'phonenumber';
+
+export interface PropertyOption {
+  readonly label: string;
+  readonly value: string;
+  // `| undefined` rather than a bare `?:` because Zod's inferred optional
+  // type is `T | undefined`, not "absent or T" — under
+  // `exactOptionalPropertyTypes`, those are different types, and a Zod
+  // schema's output would not otherwise satisfy this interface.
+  readonly hidden?: boolean | undefined;
+  readonly displayOrder?: number | undefined;
+}
+
+/** A custom property definition, as returned by the Properties API. */
+export interface PropertyDefinition {
+  readonly name: string;
+  readonly label: string;
+  readonly type: string;
+  readonly fieldType: string;
+  readonly groupName: string | null;
+  readonly description: string | null;
+  readonly options: readonly PropertyOption[];
+  readonly hidden: boolean;
+  readonly hasUniqueValue: boolean;
+  readonly calculated: boolean;
+}
+
+/** One stage within a deal pipeline. */
+export interface PipelineStage {
+  readonly id: string;
+  readonly label: string;
+  readonly displayOrder: number;
+  readonly probability: number | null;
+  readonly isClosed: boolean;
+}
+
+/** A deal pipeline and its ordered stages. */
+export interface Pipeline {
+  readonly id: string;
+  readonly label: string;
+  readonly displayOrder: number;
+  readonly stages: readonly PipelineStage[];
 }

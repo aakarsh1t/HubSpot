@@ -8,7 +8,7 @@ import type { AssociationRef } from '../../../types/crm.types.js';
 import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.types.js';
 
 interface ListAssociationsResult {
-  readonly contactId: string;
+  readonly objectId: string;
   readonly toObjectType: string;
   readonly results: readonly AssociationRef[];
   readonly after: string | null;
@@ -72,14 +72,15 @@ export class ListAssociationsTool implements ToolDefinition<
     );
 
     const page = await this.associations.list({
-      contactId: input.contactId,
+      fromObjectType: 'contacts',
+      fromObjectId: input.contactId,
       toObjectType: input.toObjectType,
       limit: input.limit,
       after: input.after,
     });
 
     return {
-      contactId: input.contactId,
+      objectId: input.contactId,
       toObjectType: input.toObjectType,
       results: page.results,
       after: page.after,

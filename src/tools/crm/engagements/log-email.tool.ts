@@ -77,17 +77,17 @@ export class LogEmailTool implements ToolDefinition<typeof logEmailInputSchema, 
       'Logging email on HubSpot contact.'
     );
 
-    const result = await this.engagements.logEmail(input);
+    const result = await this.engagements.logEmail('contacts', input.contactId, input);
 
     return {
       success: true,
       engagementId: result.engagementId,
       engagementType: result.engagementType,
-      contactId: result.contactId,
+      contactId: result.objectId,
       timestamp: result.timestamp,
       message:
         `Email ${result.engagementId} ("${input.subject}") was logged on contact ` +
-        `${result.contactId}. No email was actually sent.`,
+        `${result.objectId}. No email was actually sent.`,
     };
   }
 }

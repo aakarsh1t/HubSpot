@@ -8,7 +8,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
 
 interface AssociationMutationResult {
   readonly success: boolean;
-  readonly contactId: string;
+  readonly objectId: string;
   readonly toObjectType: string;
   readonly toObjectId: string;
   readonly message: string;
@@ -78,14 +78,15 @@ export class DeleteAssociationTool implements ToolDefinition<
     );
 
     await this.associations.remove({
-      contactId: input.contactId,
+      fromObjectType: 'contacts',
+      fromObjectId: input.contactId,
       toObjectType: input.toObjectType,
       toObjectId: input.toObjectId,
     });
 
     return {
       success: true,
-      contactId: input.contactId,
+      objectId: input.contactId,
       toObjectType: input.toObjectType,
       toObjectId: input.toObjectId,
       message:

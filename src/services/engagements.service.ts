@@ -3,18 +3,18 @@ import {
   ENGAGEMENT_BODY_PROPERTY,
   ENGAGEMENT_TIMELINE_PROPERTIES,
   ENGAGEMENT_TITLE_PROPERTY,
-  ENGAGEMENT_TO_CONTACT_TYPE_ID,
+  getAssociationTypeId,
   HUBSPOT_DEFINED,
 } from './association-types.js';
 import type { HubSpotClient } from '../clients/hubspot.client.js';
-import type { EngagementObjectType, TimelineEntry } from '../types/crm.types.js';
+import type { CrmObjectType, EngagementObjectType, TimelineEntry } from '../types/crm.types.js';
 import type {
-  CreateMeetingInput,
-  CreateNoteInput,
-  CreateTaskInput,
-  GetTimelineInput,
-  LogCallInput,
-  LogEmailInput,
+  CallBody,
+  EmailBody,
+  MeetingBody,
+  NoteBody,
+  TaskBody,
+  TimelineOptions,
 } from '../schemas/engagement.schema.js';
 
 interface RawEngagement {
@@ -33,7 +33,8 @@ interface RawBatchReadResponse {
 export interface EngagementResult {
   readonly engagementId: string;
   readonly engagementType: EngagementObjectType;
-  readonly contactId: string;
+  readonly objectType: CrmObjectType;
+  readonly objectId: string;
   readonly timestamp: string | null;
 }
 
@@ -49,16 +50,27 @@ export interface EngagementsServiceDependencies {
 }
 
 /**
- * Engagements logged against a contact: notes, tasks, calls, meetings, emails.
+ * Engagements (notes, tasks, calls, meetings, emails) logged against any
+ * primary CRM object — contacts, companies, or deals.
  *
- * Every engagement is created in a single request that both creates the record
- * and associates it with the contact, using the association array HubSpot
- * accepts on create. Doing it in two calls would leave an orphaned engagement
- * behind whenever the second call failed.
+ * Every method takes `(objectType, objectId, body)` rather than one object
+ * carrying an ambiguous ID field: `objectType` and `objectId` are how the
+ * caller says *which* record, and `body` is exactly the engagement-specific
+ * payload with no ID field mixed in (see `*BodySchema` in
+ * `engagement.schema.ts`) — a shape that is identical regardless of which
+ * object type the engagement is being logged against, which is what lets
+ * Contacts, Companies, and Deals share this one implementation.
  *
- * Note the association direction: these use *engagement→contact* type IDs
- * (note→contact is 202, not the 201 of contact→note). Getting this backwards
- * yields a 400 that reads like a permissions error.
+ * Every engagement is created in a single request that both creates the
+ * record and associates it with the target object, using the association
+ * array HubSpot accepts on create. Doing it in two calls would leave an
+ * orphaned engagement behind whenever the second call failed.
+ *
+ * Association direction is engagement→object (note→company is 190, not the
+ * 189 of company→note) — getting this backwards yields a 400 that reads like
+ * a permissions error, which is exactly why the type IDs are resolved
+ * through the single verified `getAssociationTypeId` lookup rather than
+ * re-derived per object type.
  */
 export class EngagementsService {
   private readonly client: HubSpotClient;
@@ -70,109 +82,134 @@ export class EngagementsService {
   }
 
   /**
-   * Creates a note on a contact's timeline.
+   * Creates a note on an object's timeline.
    *
    * @example
    * ```ts
-   * await engagements.createNote({
-   *   contactId: '512',
+   * await engagements.createNote('contacts', '512', {
    *   body: 'Customer asked about enterprise pricing.',
    * });
    * ```
    */
-  async createNote(input: CreateNoteInput): Promise<EngagementResult> {
-    const timestamp = resolveTimestamp(input.timestamp);
+  async createNote(
+    objectType: CrmObjectType,
+    objectId: string,
+    body: NoteBody
+  ): Promise<EngagementResult> {
+    const timestamp = resolveTimestamp(body.timestamp);
 
-    return this.createEngagement('notes', input.contactId, {
+    return this.createEngagement('notes', objectType, objectId, {
       hs_timestamp: timestamp,
-      hs_note_body: input.body,
-      ...(input.ownerId === undefined ? {} : { hubspot_owner_id: input.ownerId }),
+      hs_note_body: body.body,
+      ...(body.ownerId === undefined ? {} : { hubspot_owner_id: body.ownerId }),
     });
   }
 
-  /**
-   * Creates a task associated with a contact.
-   * `hs_timestamp` carries the due date for tasks.
-   */
-  async createTask(input: CreateTaskInput): Promise<EngagementResult> {
-    const timestamp = resolveTimestamp(input.dueDate);
+  /** Creates a task. `hs_timestamp` carries the due date for tasks. */
+  async createTask(
+    objectType: CrmObjectType,
+    objectId: string,
+    body: TaskBody
+  ): Promise<EngagementResult> {
+    const timestamp = resolveTimestamp(body.dueDate);
 
-    return this.createEngagement('tasks', input.contactId, {
+    return this.createEngagement('tasks', objectType, objectId, {
       hs_timestamp: timestamp,
-      hs_task_subject: input.subject,
-      hs_task_status: input.status,
-      hs_task_priority: input.priority,
-      hs_task_type: input.taskType,
-      ...(input.body === undefined ? {} : { hs_task_body: input.body }),
-      ...(input.ownerId === undefined ? {} : { hubspot_owner_id: input.ownerId }),
+      hs_task_subject: body.subject,
+      hs_task_status: body.status,
+      hs_task_priority: body.priority,
+      hs_task_type: body.taskType,
+      ...(body.body === undefined ? {} : { hs_task_body: body.body }),
+      ...(body.ownerId === undefined ? {} : { hubspot_owner_id: body.ownerId }),
     });
   }
 
-  /** Logs a call against a contact. Durations are milliseconds, per HubSpot. */
-  async logCall(input: LogCallInput): Promise<EngagementResult> {
-    const timestamp = resolveTimestamp(input.timestamp);
+  /** Logs a call. Durations are milliseconds, per HubSpot. */
+  async logCall(
+    objectType: CrmObjectType,
+    objectId: string,
+    body: CallBody
+  ): Promise<EngagementResult> {
+    const timestamp = resolveTimestamp(body.timestamp);
 
-    return this.createEngagement('calls', input.contactId, {
+    return this.createEngagement('calls', objectType, objectId, {
       hs_timestamp: timestamp,
-      hs_call_title: input.title,
-      hs_call_direction: input.direction,
-      hs_call_status: input.status,
-      ...(input.body === undefined ? {} : { hs_call_body: input.body }),
-      ...(input.durationMs === undefined ? {} : { hs_call_duration: String(input.durationMs) }),
-      ...(input.ownerId === undefined ? {} : { hubspot_owner_id: input.ownerId }),
+      hs_call_title: body.title,
+      hs_call_direction: body.direction,
+      hs_call_status: body.status,
+      ...(body.body === undefined ? {} : { hs_call_body: body.body }),
+      ...(body.durationMs === undefined ? {} : { hs_call_duration: String(body.durationMs) }),
+      ...(body.ownerId === undefined ? {} : { hubspot_owner_id: body.ownerId }),
     });
   }
 
-  /** Creates a meeting on a contact's timeline. */
-  async createMeeting(input: CreateMeetingInput): Promise<EngagementResult> {
-    const startTime = new Date(input.startTime).toISOString();
-    const endTime = new Date(input.endTime).toISOString();
+  /** Creates a meeting. */
+  async createMeeting(
+    objectType: CrmObjectType,
+    objectId: string,
+    body: MeetingBody
+  ): Promise<EngagementResult> {
+    const startTime = new Date(body.startTime).toISOString();
+    const endTime = new Date(body.endTime).toISOString();
 
-    return this.createEngagement('meetings', input.contactId, {
-      // HubSpot expects hs_timestamp to match the meeting start.
+    return this.createEngagement('meetings', objectType, objectId, {
       hs_timestamp: startTime,
-      hs_meeting_title: input.title,
+      hs_meeting_title: body.title,
       hs_meeting_start_time: startTime,
       hs_meeting_end_time: endTime,
-      hs_meeting_outcome: input.outcome,
-      ...(input.body === undefined ? {} : { hs_meeting_body: input.body }),
-      ...(input.location === undefined ? {} : { hs_meeting_location: input.location }),
-      ...(input.ownerId === undefined ? {} : { hubspot_owner_id: input.ownerId }),
+      hs_meeting_outcome: body.outcome,
+      ...(body.body === undefined ? {} : { hs_meeting_body: body.body }),
+      ...(body.location === undefined ? {} : { hs_meeting_location: body.location }),
+      ...(body.ownerId === undefined ? {} : { hubspot_owner_id: body.ownerId }),
     });
   }
 
-  /** Logs an email against a contact. */
-  async logEmail(input: LogEmailInput): Promise<EngagementResult> {
-    const timestamp = resolveTimestamp(input.timestamp);
+  /** Logs an email. */
+  async logEmail(
+    objectType: CrmObjectType,
+    objectId: string,
+    body: EmailBody
+  ): Promise<EngagementResult> {
+    const timestamp = resolveTimestamp(body.timestamp);
 
-    return this.createEngagement('emails', input.contactId, {
+    return this.createEngagement('emails', objectType, objectId, {
       hs_timestamp: timestamp,
-      hs_email_subject: input.subject,
-      hs_email_text: input.body,
-      hs_email_direction: input.direction,
-      hs_email_status: input.status,
-      ...(input.ownerId === undefined ? {} : { hubspot_owner_id: input.ownerId }),
+      hs_email_subject: body.subject,
+      hs_email_text: body.body,
+      hs_email_direction: body.direction,
+      hs_email_status: body.status,
+      ...(body.ownerId === undefined ? {} : { hubspot_owner_id: body.ownerId }),
     });
   }
 
   /**
-   * Builds a contact's activity timeline by aggregating its engagements.
+   * Builds an object's activity timeline by aggregating its engagements.
    *
-   * A note on naming: HubSpot's "Timeline Events API" is a different feature —
-   * it creates *custom* event types and requires a developer app with an event
-   * template, which a private app cannot do. What users almost always mean by
-   * "the contact's timeline" is the activity feed shown on the record, which
-   * is exactly what this reconstructs from associated engagements.
+   * A note on naming: HubSpot's "Timeline Events API" is a different feature
+   * — it creates *custom* event types and requires a developer app with an
+   * event template, which a private app cannot do. What users almost always
+   * mean by "the record's timeline" is the activity feed shown on the
+   * record, which is exactly what this reconstructs from associated
+   * engagements.
    *
-   * Executed as: for each requested type, list associated IDs, then batch-read
-   * their properties. Types are fetched concurrently, so wall-clock cost is
-   * that of the slowest type rather than the sum.
+   * Executed as: for each requested type, list associated IDs, then
+   * batch-read their properties. Types are fetched concurrently, so
+   * wall-clock cost is that of the slowest type rather than the sum.
    */
-  async getTimeline(input: GetTimelineInput): Promise<TimelineResult> {
+  async getTimeline(
+    objectType: CrmObjectType,
+    objectId: string,
+    options: TimelineOptions
+  ): Promise<TimelineResult> {
     const perType = await Promise.all(
-      input.types.map(async (type) => ({
+      options.types.map(async (type) => ({
         type,
-        entries: await this.fetchEngagementsOfType(input.contactId, type, input.limitPerType),
+        entries: await this.fetchEngagementsOfType(
+          objectType,
+          objectId,
+          type,
+          options.limitPerType
+        ),
       }))
     );
 
@@ -182,15 +219,12 @@ export class EngagementsService {
 
     for (const { type, entries: typeEntries } of perType) {
       countsByType[type] = typeEntries.length;
-      // Hitting the requested ceiling means HubSpot almost certainly has more.
-      if (typeEntries.length >= input.limitPerType) {
+      if (typeEntries.length >= options.limitPerType) {
         truncated = true;
       }
       entries.push(...typeEntries);
     }
 
-    // Newest first, matching the CRM UI. Entries without a timestamp sort last
-    // rather than being dropped.
     entries.sort((a, b) => {
       const left = a.timestamp === null ? -Infinity : Date.parse(a.timestamp);
       const right = b.timestamp === null ? -Infinity : Date.parse(b.timestamp);
@@ -198,23 +232,23 @@ export class EngagementsService {
     });
 
     this.logger.debug(
-      { contactId: input.contactId, total: entries.length, countsByType },
-      'Built contact activity timeline.'
+      { objectType, objectId, total: entries.length, countsByType },
+      'Built activity timeline.'
     );
 
     return { entries, countsByType, truncated };
   }
 
   /**
-   * Creates an engagement and associates it with the contact in one request.
-   *
-   * `retryable: false` throughout: engagement creation is not idempotent, and
-   * a replay after a timeout would leave duplicate notes or double-logged
-   * calls on the customer's timeline.
+   * Creates an engagement and associates it with the target object in one
+   * request. `retryable: false` throughout: engagement creation is not
+   * idempotent, and a replay after a timeout would leave duplicate notes or
+   * double-logged calls on the record's timeline.
    */
   private async createEngagement(
     type: EngagementObjectType,
-    contactId: string,
+    objectType: CrmObjectType,
+    objectId: string,
     properties: Record<string, string>
   ): Promise<EngagementResult> {
     const response = await this.client.request<RawEngagement>({
@@ -224,11 +258,11 @@ export class EngagementsService {
         properties,
         associations: [
           {
-            to: { id: contactId },
+            to: { id: objectId },
             types: [
               {
                 associationCategory: HUBSPOT_DEFINED,
-                associationTypeId: ENGAGEMENT_TO_CONTACT_TYPE_ID[type],
+                associationTypeId: getAssociationTypeId(type, objectType),
               },
             ],
           },
@@ -238,26 +272,28 @@ export class EngagementsService {
     });
 
     this.logger.info(
-      { engagementType: type, engagementId: response.data.id, contactId },
-      'Created engagement on contact.'
+      { engagementType: type, engagementId: response.data.id, objectType, objectId },
+      'Created engagement.'
     );
 
     return {
       engagementId: response.data.id,
       engagementType: type,
-      contactId,
+      objectType,
+      objectId,
       timestamp: properties.hs_timestamp ?? null,
     };
   }
 
   private async fetchEngagementsOfType(
-    contactId: string,
+    objectType: CrmObjectType,
+    objectId: string,
     type: EngagementObjectType,
     limit: number
   ): Promise<TimelineEntry[]> {
     const associations = await this.client.request<RawAssociationPage>({
       method: 'GET',
-      path: `/crm/v4/objects/contacts/${encodeURIComponent(contactId)}/associations/${type}`,
+      path: `/crm/v4/objects/${objectType}/${encodeURIComponent(objectId)}/associations/${type}`,
       query: { limit },
     });
 
@@ -272,10 +308,7 @@ export class EngagementsService {
     const batch = await this.client.request<RawBatchReadResponse>({
       method: 'POST',
       path: `/crm/v3/objects/${type}/batch/read`,
-      body: {
-        properties: ENGAGEMENT_TIMELINE_PROPERTIES[type],
-        inputs: ids.map((id) => ({ id })),
-      },
+      body: { properties: ENGAGEMENT_TIMELINE_PROPERTIES[type], inputs: ids.map((id) => ({ id })) },
       retryable: true,
     });
 
@@ -288,9 +321,6 @@ function toTimelineEntry(type: EngagementObjectType, raw: RawEngagement): Timeli
   const titleProperty = ENGAGEMENT_TITLE_PROPERTY[type];
   const bodyProperty = ENGAGEMENT_BODY_PROPERTY[type];
 
-  // Everything not already surfaced as title/body/owner/timestamp goes into
-  // `details`, so type-specific fields stay visible without a bespoke shape
-  // per engagement type.
   const details: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(properties)) {
     if (
@@ -320,10 +350,7 @@ function toTimelineEntry(type: EngagementObjectType, raw: RawEngagement): Timeli
  * We always send ISO 8601 — it is unambiguous in logs and in error messages.
  */
 function resolveTimestamp(value: string | undefined): string {
-  if (value === undefined) {
-    return new Date().toISOString();
-  }
-  return new Date(value).toISOString();
+  return value === undefined ? new Date().toISOString() : new Date(value).toISOString();
 }
 
 /** HubSpot returns timestamps as ISO strings or epoch milliseconds; normalise both. */
@@ -331,11 +358,9 @@ function normalizeTimestamp(value: string | null): string | null {
   if (value === null || value === '') {
     return null;
   }
-
   if (/^\d+$/u.test(value)) {
     return new Date(Number(value)).toISOString();
   }
-
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
 }

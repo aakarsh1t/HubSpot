@@ -347,7 +347,7 @@ describe('MCP Streamable HTTP endpoint', () => {
     );
   });
 
-  it('does not yet expose company, deal, or ticket modules', async () => {
+  it('exposes the full Companies and Deals modules', async () => {
     const response = await server.app.inject({
       method: 'POST',
       url: '/mcp',
@@ -359,11 +359,48 @@ describe('MCP Streamable HTTP endpoint', () => {
       .json<{ result: { tools: { name: string }[] } }>()
       .result.tools.map((tool) => tool.name);
 
-    // Guards the agreed scope: those modules are later milestones. The filter
-    // excludes association tools, which legitimately reference other objects.
-    const outOfScope = names.filter(
-      (name) => /company|companies|deal|ticket/i.test(name) && !name.includes('associat')
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'hubspot_create_company',
+        'hubspot_update_company',
+        'hubspot_get_company',
+        'hubspot_search_companies',
+        'hubspot_merge_companies',
+        'hubspot_delete_company_permanently',
+        'hubspot_create_deal',
+        'hubspot_update_deal',
+        'hubspot_get_deal',
+        'hubspot_search_deals',
+        'hubspot_list_deal_pipelines',
+        'hubspot_move_deal_stage',
+        'hubspot_change_deal_pipeline',
+        'hubspot_set_deal_forecast_category',
+        'hubspot_merge_deals',
+        'hubspot_delete_deal_permanently',
+        'hubspot_list_properties',
+        'hubspot_get_property_history',
+      ])
     );
+  });
+
+  it('does not yet expose a Tickets module', async () => {
+    const response = await server.app.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: mcpHeaders,
+      payload: { jsonrpc: '2.0', id: 32, method: 'tools/list', params: {} },
+    });
+
+    const names = response
+      .json<{ result: { tools: { name: string }[] } }>()
+      .result.tools.map((tool) => tool.name);
+
+    // Guards the remaining scope: a dedicated Tickets object module (create/
+    // update/search/etc. FOR tickets) is a later milestone. Tickets already
+    // appear legitimately today as an *associable* type on the other three
+    // modules (e.g. hubspot_associate_contact with toObjectType: "tickets"),
+    // so the filter excludes association tools rather than the word "ticket".
+    const outOfScope = names.filter((name) => /ticket/i.test(name) && !name.includes('associat'));
 
     expect(outOfScope).toEqual([]);
   });

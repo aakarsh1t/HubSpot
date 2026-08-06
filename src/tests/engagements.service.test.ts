@@ -22,11 +22,11 @@ interface EngagementBody {
 }
 
 describe('EngagementsService.createNote', () => {
-  it('creates the note and its contact association in one request', async () => {
+  it('creates the note and its object association in one request', async () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '900' });
 
-    await service.createNote({ contactId: '512', body: 'Called about pricing.' });
+    await service.createNote('contacts', '512', { body: 'Called about pricing.' });
 
     const request = client.lastRequest();
     expect(request.path).toBe('/crm/v3/objects/notes');
@@ -41,7 +41,7 @@ describe('EngagementsService.createNote', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '900' });
 
-    await service.createNote({ contactId: '512', body: 'x' });
+    await service.createNote('contacts', '512', { body: 'x' });
 
     // 202 is note→contact. 201 is contact→note and would be rejected here.
     expect((client.lastRequest().body as EngagementBody).associations[0]?.types[0]).toEqual({
@@ -50,12 +50,35 @@ describe('EngagementsService.createNote', () => {
     });
   });
 
+  it('uses the note-to-company association type ID when logged against a company', async () => {
+    const { service, client } = buildEngagements();
+    client.respondWith({ id: '900' });
+
+    await service.createNote('companies', '7801', { body: 'x' });
+
+    // 190 is note→company — a different ID than note→contact (202).
+    expect(
+      (client.lastRequest().body as EngagementBody).associations[0]?.types[0]?.associationTypeId
+    ).toBe(190);
+  });
+
+  it('uses the note-to-deal association type ID when logged against a deal', async () => {
+    const { service, client } = buildEngagements();
+    client.respondWith({ id: '900' });
+
+    await service.createNote('deals', '9001', { body: 'x' });
+
+    expect(
+      (client.lastRequest().body as EngagementBody).associations[0]?.types[0]?.associationTypeId
+    ).toBe(214);
+  });
+
   it('defaults the timestamp to now and never retries', async () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '900' });
 
     const before = Date.now();
-    await service.createNote({ contactId: '512', body: 'x' });
+    await service.createNote('contacts', '512', { body: 'x' });
 
     const timestamp = (client.lastRequest().body as EngagementBody).properties.hs_timestamp;
     expect(Date.parse(timestamp!)).toBeGreaterThanOrEqual(before - 1_000);
@@ -67,8 +90,7 @@ describe('EngagementsService.createNote', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '900' });
 
-    await service.createNote({
-      contactId: '512',
+    await service.createNote('contacts', '512', {
       body: 'x',
       timestamp: '2026-08-01T09:30:00.000Z',
     });
@@ -77,6 +99,20 @@ describe('EngagementsService.createNote', () => {
       '2026-08-01T09:30:00.000Z'
     );
   });
+
+  it('returns the object type and id it was created against', async () => {
+    const { service, client } = buildEngagements();
+    client.respondWith({ id: '900' });
+
+    const result = await service.createNote('deals', '9001', { body: 'x' });
+
+    expect(result).toMatchObject({
+      engagementId: '900',
+      engagementType: 'notes',
+      objectType: 'deals',
+      objectId: '9001',
+    });
+  });
 });
 
 describe('EngagementsService.createTask', () => {
@@ -84,8 +120,7 @@ describe('EngagementsService.createTask', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '901' });
 
-    await service.createTask({
-      contactId: '512',
+    await service.createTask('contacts', '512', {
       subject: 'Send deck',
       status: 'NOT_STARTED',
       priority: 'HIGH',
@@ -105,8 +140,7 @@ describe('EngagementsService.createTask', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '901' });
 
-    await service.createTask({
-      contactId: '512',
+    await service.createTask('contacts', '512', {
       subject: 'x',
       status: 'NOT_STARTED',
       priority: 'MEDIUM',
@@ -118,12 +152,27 @@ describe('EngagementsService.createTask', () => {
     ).toBe(204);
   });
 
+  it('uses association type 192 (task to company)', async () => {
+    const { service, client } = buildEngagements();
+    client.respondWith({ id: '901' });
+
+    await service.createTask('companies', '7801', {
+      subject: 'x',
+      status: 'NOT_STARTED',
+      priority: 'MEDIUM',
+      taskType: 'TODO',
+    });
+
+    expect(
+      (client.lastRequest().body as EngagementBody).associations[0]?.types[0]?.associationTypeId
+    ).toBe(192);
+  });
+
   it('omits the body property entirely when not supplied', async () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '901' });
 
-    await service.createTask({
-      contactId: '512',
+    await service.createTask('contacts', '512', {
       subject: 'x',
       status: 'NOT_STARTED',
       priority: 'MEDIUM',
@@ -141,8 +190,7 @@ describe('EngagementsService.logCall', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '902' });
 
-    await service.logCall({
-      contactId: '512',
+    await service.logCall('contacts', '512', {
       title: 'Discovery',
       durationMs: 1_800_000,
       direction: 'OUTBOUND',
@@ -158,8 +206,7 @@ describe('EngagementsService.logCall', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '902' });
 
-    await service.logCall({
-      contactId: '512',
+    await service.logCall('contacts', '512', {
       title: 'x',
       direction: 'INBOUND',
       status: 'COMPLETED',
@@ -169,6 +216,21 @@ describe('EngagementsService.logCall', () => {
       (client.lastRequest().body as EngagementBody).associations[0]?.types[0]?.associationTypeId
     ).toBe(194);
   });
+
+  it('uses association type 206 (call to deal)', async () => {
+    const { service, client } = buildEngagements();
+    client.respondWith({ id: '902' });
+
+    await service.logCall('deals', '9001', {
+      title: 'x',
+      direction: 'INBOUND',
+      status: 'COMPLETED',
+    });
+
+    expect(
+      (client.lastRequest().body as EngagementBody).associations[0]?.types[0]?.associationTypeId
+    ).toBe(206);
+  });
 });
 
 describe('EngagementsService.createMeeting', () => {
@@ -176,8 +238,7 @@ describe('EngagementsService.createMeeting', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '903' });
 
-    await service.createMeeting({
-      contactId: '512',
+    await service.createMeeting('contacts', '512', {
       title: 'Q3 planning',
       startTime: '2026-08-12T14:00:00.000Z',
       endTime: '2026-08-12T15:00:00.000Z',
@@ -197,8 +258,7 @@ describe('EngagementsService.logEmail', () => {
     const { service, client } = buildEngagements();
     client.respondWith({ id: '904' });
 
-    await service.logEmail({
-      contactId: '512',
+    await service.logEmail('contacts', '512', {
       subject: 'Pricing',
       body: 'Here you go',
       direction: 'INCOMING_EMAIL',
@@ -229,8 +289,7 @@ describe('EngagementsService.getTimeline', () => {
       }
     );
 
-    const timeline = await service.getTimeline({
-      contactId: '512',
+    const timeline = await service.getTimeline('contacts', '512', {
       types: ['notes'],
       limitPerType: 20,
     });
@@ -250,8 +309,7 @@ describe('EngagementsService.getTimeline', () => {
       { results: [{ id: '900', properties: { hs_timestamp: '1767225600000' } }] }
     );
 
-    const timeline = await service.getTimeline({
-      contactId: '512',
+    const timeline = await service.getTimeline('contacts', '512', {
       types: ['notes'],
       limitPerType: 20,
     });
@@ -265,8 +323,7 @@ describe('EngagementsService.getTimeline', () => {
     const service = new EngagementsService({ client: client.asClient(), logger: testLogger() });
     client.respondWith({ results: [] });
 
-    const timeline = await service.getTimeline({
-      contactId: '512',
+    const timeline = await service.getTimeline('contacts', '512', {
       types: ['notes'],
       limitPerType: 20,
     });
@@ -290,8 +347,7 @@ describe('EngagementsService.getTimeline', () => {
       }
     );
 
-    const timeline = await service.getTimeline({
-      contactId: '512',
+    const timeline = await service.getTimeline('contacts', '512', {
       types: ['notes'],
       limitPerType: 2,
     });
@@ -322,8 +378,7 @@ describe('EngagementsService.getTimeline', () => {
       }
     );
 
-    const timeline = await service.getTimeline({
-      contactId: '512',
+    const timeline = await service.getTimeline('contacts', '512', {
       types: ['calls'],
       limitPerType: 20,
     });
@@ -333,6 +388,16 @@ describe('EngagementsService.getTimeline', () => {
     expect(entry.body).toBe('notes');
     expect(entry.ownerId).toBe('77');
     expect(entry.details.hs_call_duration).toBe('1800000');
+  });
+
+  it('builds the timeline against a company or deal identically to a contact', async () => {
+    const client = new FakeHubSpotClient();
+    const service = new EngagementsService({ client: client.asClient(), logger: testLogger() });
+    client.respondWith({ results: [] });
+
+    await service.getTimeline('deals', '9001', { types: ['calls'], limitPerType: 20 });
+
+    expect(client.lastRequest().path).toBe('/crm/v4/objects/deals/9001/associations/calls');
   });
 });
 
@@ -345,7 +410,12 @@ describe('AssociationsService', () => {
       ],
     });
 
-    const page = await service.list({ contactId: '512', toObjectType: 'companies', limit: 100 });
+    const page = await service.list({
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
+      toObjectType: 'companies',
+      limit: 100,
+    });
 
     expect(client.lastRequest().path).toBe('/crm/v4/objects/contacts/512/associations/companies');
     expect(page.results[0]?.toObjectId).toBe('7801');
@@ -356,7 +426,12 @@ describe('AssociationsService', () => {
     const { service, client } = buildAssociations();
     client.respondWith({});
 
-    await service.create({ contactId: '512', toObjectType: 'companies', toObjectId: '7801' });
+    await service.create({
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
+      toObjectType: 'companies',
+      toObjectId: '7801',
+    });
 
     const request = client.lastRequest();
     expect(request.method).toBe('PUT');
@@ -367,12 +442,47 @@ describe('AssociationsService', () => {
     expect(request.retryable).toBe(true);
   });
 
+  it('resolves the correct type ID for a company-to-deal association', async () => {
+    const { service, client } = buildAssociations();
+    client.respondWith({});
+
+    await service.create({
+      fromObjectType: 'companies',
+      fromObjectId: '7801',
+      toObjectType: 'deals',
+      toObjectId: '9001',
+    });
+
+    // 342 is company→deal; 341 (the reverse, deal→company) would be wrong here.
+    expect(client.lastRequest().body).toEqual([
+      { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 342 },
+    ]);
+  });
+
+  it('resolves the corrected contact-to-deal association type ID (4, not 3)', async () => {
+    const { service, client } = buildAssociations();
+    client.respondWith({});
+
+    await service.create({
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
+      toObjectType: 'deals',
+      toObjectId: '9001',
+    });
+
+    // Regression guard: an earlier version of this table had this backwards.
+    expect(client.lastRequest().body).toEqual([
+      { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 4 },
+    ]);
+  });
+
   it('marks a custom association type as USER_DEFINED', async () => {
     const { service, client } = buildAssociations();
     client.respondWith({});
 
     await service.create({
-      contactId: '512',
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
       toObjectType: 'companies',
       toObjectId: '7801',
       associationTypeId: 145,
@@ -387,7 +497,12 @@ describe('AssociationsService', () => {
     const { service, client } = buildAssociations();
     client.respondWith(null);
 
-    await service.remove({ contactId: '512', toObjectType: 'deals', toObjectId: '99' });
+    await service.remove({
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
+      toObjectType: 'deals',
+      toObjectId: '99',
+    });
 
     const request = client.lastRequest();
     expect(request.method).toBe('DELETE');

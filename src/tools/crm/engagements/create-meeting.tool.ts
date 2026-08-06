@@ -75,17 +75,17 @@ export class CreateMeetingTool implements ToolDefinition<
       'Creating meeting on HubSpot contact.'
     );
 
-    const result = await this.engagements.createMeeting(input);
+    const result = await this.engagements.createMeeting('contacts', input.contactId, input);
 
     return {
       success: true,
       engagementId: result.engagementId,
       engagementType: result.engagementType,
-      contactId: result.contactId,
+      contactId: result.objectId,
       timestamp: result.timestamp,
       message:
         `Meeting ${result.engagementId} ("${input.title}") recorded on contact ` +
-        `${result.contactId}. No calendar invitation was sent.`,
+        `${result.objectId}. No calendar invitation was sent.`,
     };
   }
 }

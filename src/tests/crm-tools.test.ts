@@ -259,11 +259,17 @@ describe('Association service seam reused by tools', () => {
     });
     client.respondWith({});
 
-    await associations.create({ contactId: '512', toObjectType: 'deals', toObjectId: '99' });
+    await associations.create({
+      fromObjectType: 'contacts',
+      fromObjectId: '512',
+      toObjectType: 'deals',
+      toObjectId: '99',
+    });
 
-    // 3 is the verified contact→deal association type ID.
+    // 4 is the verified contact→deal association type ID (3 is the reverse,
+    // deal→contact — an earlier version of the type table had this backwards).
     expect(client.lastRequest().body).toEqual([
-      { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 3 },
+      { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 4 },
     ]);
   });
 });

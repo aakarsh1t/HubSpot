@@ -8,7 +8,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../../../types/tool.t
 
 interface AssociationMutationResult {
   readonly success: boolean;
-  readonly contactId: string;
+  readonly objectId: string;
   readonly toObjectType: string;
   readonly toObjectId: string;
   readonly message: string;
@@ -85,7 +85,8 @@ export class CreateAssociationTool implements ToolDefinition<
     );
 
     await this.associations.create({
-      contactId: input.contactId,
+      fromObjectType: 'contacts',
+      fromObjectId: input.contactId,
       toObjectType: input.toObjectType,
       toObjectId: input.toObjectId,
       associationTypeId: input.associationTypeId,
@@ -93,7 +94,7 @@ export class CreateAssociationTool implements ToolDefinition<
 
     return {
       success: true,
-      contactId: input.contactId,
+      objectId: input.contactId,
       toObjectType: input.toObjectType,
       toObjectId: input.toObjectId,
       message: `Contact ${input.contactId} is now associated with ${input.toObjectType} record ${input.toObjectId}.`,
