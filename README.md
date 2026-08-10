@@ -2,7 +2,7 @@
 
 Production-grade [Model Context Protocol](https://modelcontextprotocol.io) server exposing HubSpot to **Microsoft Copilot Studio**, over Streamable HTTP, deployed to **Azure App Service**.
 
-> **Scope:** connectivity, authentication, resilience, and observability are complete. **CRM tools are not implemented yet** — they are the next milestone and are pending approval. The tool registry is built so each CRM tool is one new file plus one array entry.
+> **Scope:** complete and administrative. Contacts, Companies, and Deals are covered end to end — read, search, create, update, archive, permanent erasure, merge, restore, bulk operations, associations, activity logging, timelines, pipelines, and portal property administration — exposed through **14 tools**, because object type is a parameter rather than part of a tool's name.
 
 ---
 
@@ -17,7 +17,7 @@ Production-grade [Model Context Protocol](https://modelcontextprotocol.io) serve
 - [Connecting to Copilot Studio](#connecting-to-copilot-studio)
 - [Deploying to Azure App Service](#deploying-to-azure-app-service)
 - [Testing](#testing)
-- [Adding CRM tools](#adding-crm-tools)
+- [Extending the catalogue](#extending-the-catalogue)
 
 ---
 
@@ -45,9 +45,9 @@ src/
 ├─ middleware/   Retry, rate limiter, circuit breaker, auth, error handler
 ├─ auth/         TokenProvider seam: private app + OAuth strategies
 ├─ clients/      HubSpot API gateway + error mapper
-├─ services/     Business logic (HubSpot health/connectivity)
+├─ services/     CRM record router, associations, engagements, properties, health
 ├─ schemas/      Zod contracts → become JSON Schema in tools/list
-├─ tools/        Tool registry + tool definitions
+├─ tools/        Tool registry + the 14 tool definitions
 ├─ container/    DI composition root
 ├─ server/       MCP server, transport manager, Fastify app, routes, lifecycle
 └─ tests/        Vitest unit + integration suites
@@ -163,13 +163,50 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/probl
 
 ## Tools
 
-| Tool                      | Purpose                                                             |
-| ------------------------- | ------------------------------------------------------------------- |
-| `hubspot_test_connection` | Full credential + connectivity diagnostic with remediation guidance |
-| `hubspot_ping`            | Lightweight availability probe                                      |
-| `mcp_server_info`         | Server metadata and tool catalogue                                  |
+Fourteen tools, all full-privilege. **Object type is a parameter, not part of the tool name** — `objectType: "contacts" | "companies" | "deals"`.
 
-`hubspot_test_connection` **does not throw when HubSpot is unhealthy** — it returns a successful call reporting `status: "unauthorized" | "unreachable" | "degraded"` plus the action to take. A diagnostic tool that fails when the thing it diagnoses is down hides the answer precisely when it is needed.
+| Tool                          | Purpose                                                                |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `hubspot_diagnostics`         | Credential + connectivity check, server identity, remediation guidance |
+| `hubspot_get_record`          | Read one record by ID, or by a unique property such as email           |
+| `hubspot_search_records`      | Filtered / free-text search, or a plain listing when given no criteria |
+| `hubspot_create_record`       | Create a record, optionally with associations in the same request      |
+| `hubspot_update_record`       | Patch properties — including deal stage and pipeline moves             |
+| `hubspot_delete_record`       | Archive (recoverable) or permanently erase (GDPR, gated)               |
+| `hubspot_restore_record`      | Recreate a record from its archived snapshot (gated)                   |
+| `hubspot_merge_records`       | Merge duplicates into a surviving primary (gated)                      |
+| `hubspot_batch_records`       | Bulk create / read / update / archive, up to 100 per call              |
+| `hubspot_manage_associations` | List, create, and remove links between records                         |
+| `hubspot_create_engagement`   | Log a note, task, call, meeting, or email on a record                  |
+| `hubspot_get_timeline`        | Merged activity feed for a record                                      |
+| `hubspot_manage_properties`   | Portal property administration + property value history                |
+| `hubspot_list_pipelines`      | Pipelines and stage IDs — the prerequisite for moving a deal           |
+
+### Why fourteen and not eighty
+
+The catalogue previously carried 80 tools: `hubspot_get_contact`, `hubspot_get_company`, and `hubspot_get_deal` were three names for one HubSpot endpoint, and the same triplication ran through create, update, search, list, archive, delete, restore, merge, four batch operations, three association operations, and five activity types.
+
+That is expensive in the place it is least visible. Every tool's name, description, and full JSON Schema is re-sent to the Copilot Studio orchestrator on **every request**, and the model ranks all of them before it can act:
+
+|                         | Before  | After   |
+| ----------------------- | ------- | ------- |
+| Tools                   | 80      | 14      |
+| `tools/list` payload    | ~175 KB | ~44 KB  |
+| Approx. tokens per turn | ~44,800 | ~11,200 |
+
+Near-duplicate entries also degrade selection accuracy — three tools competing for one intent, where a wrong pick costs a full round trip to discover. HubSpot's own v3/v4 APIs are a single surface parameterized by object type, so mirroring that removed the duplication without removing a single operation.
+
+Three further latency choices fall out of the same reasoning:
+
+- **Empty properties are dropped from responses by default.** HubSpot echoes every requested property including the null ones, which on a typical record is more than half of them. `includeEmptyProperties: true` opts back in.
+- **Tool results are serialized compactly**, not pretty-printed. The only consumer is a model; indentation was pure token cost on every call.
+- **`hubspot_search_records` routes itself.** With no criteria it uses HubSpot's list endpoint — cheaper, and in a separate rate-limit bucket from search — so no separate list tool is needed.
+
+### Destructive operations
+
+This is an administrative surface: permanent deletion, merges, bulk archive, and property-definition deletion are all reachable. Each is gated behind an explicit literal-`true` confirmation field in its schema, so none can be triggered by paraphrase alone. Reversible operations — archiving a record, removing an association — are deliberately **not** gated; gating a recoverable action only trains a model to set every flag it sees.
+
+`hubspot_diagnostics` **does not throw when HubSpot is unhealthy** — it returns a successful call reporting `status: "unauthorized" | "unreachable" | "degraded"` plus the action to take. A diagnostic tool that fails when the thing it diagnoses is down hides the answer precisely when it is needed.
 
 Tool failures are returned as MCP `isError` results, not JSON-RPC errors. This is deliberate: a JSON-RPC error is a protocol fault the model never sees, whereas an `isError` result is handed to the model, which can then explain the problem or try something else.
 
@@ -227,24 +264,29 @@ On `SIGTERM`, shutdown drains in order: fail readiness → close the listener so
 ## Testing
 
 ```bash
-npm test              # 251 tests
+npm test              # 219 tests
 npm run test:coverage
 ```
 
-Unit tests cover retry/backoff semantics, circuit breaker state transitions, token-bucket fairness and refill, OAuth single-flight refresh, error mapping and redaction, and the tool registry. Integration tests drive the **real Fastify instance and real MCP transport** through `app.inject()` — full `initialize` → `tools/list` → `tools/call` handshakes in both session modes — faking only the outbound HubSpot call.
+Unit tests cover retry/backoff semantics, circuit breaker state transitions, token-bucket fairness and refill, OAuth single-flight refresh, error mapping and redaction, the tool registry, and — for the CRM tools — that `objectType` and each `action` / `operation` / `engagementType` discriminator reaches the right HubSpot path and method. Integration tests drive the **real Fastify instance and real MCP transport** through `app.inject()` — full `initialize` → `tools/list` → `tools/call` handshakes in both session modes — faking only the outbound HubSpot call.
 
-Notable invariants under test: an internal error message never reaches a caller; a 401 is not retried under private-app auth but is retried exactly once under OAuth; a client error never trips the circuit breaker; no CRM tools are exposed.
+Notable invariants under test: an internal error message never reaches a caller; a 401 is not retried under private-app auth but is retried exactly once under OAuth; a client error never trips the circuit breaker; a create is never retried while an update always is; the catalogue is asserted as an **exact set**, so an entry cannot creep back in unnoticed.
 
 ---
 
-## Adding CRM tools
+## Extending the catalogue
 
-The registry exists so this is mechanical:
+Two different jobs, and it matters which one you are doing.
 
-1. Add Zod input/output schemas in `src/schemas/`. Write every `.describe()` for a model to read — they become the JSON Schema the orchestrator uses.
+**Adding an object type** (Tickets, or a custom object) is the cheap one, and it is the whole point of the current shape: add the union member to `CrmObjectType`, add its default and read-only property lists in `src/services/`, and every existing tool covers it. No new tools, no growth in the per-turn payload.
+
+**Adding a genuinely new tool** is mechanical, but weigh it against the catalogue cost above first — if the new capability is a variation on an existing tool, it is usually a parameter, not a tool:
+
+1. Add Zod input/output schemas in `src/schemas/crm.schema.ts`. Write every `.describe()` for a model to read — they become the JSON Schema the orchestrator uses, and they are re-sent on every request, so make them discriminating rather than exhaustive.
 2. Add a service method in `src/services/` that calls `HubSpotClient`.
 3. Add a `ToolDefinition` in `src/tools/crm/`.
-4. Register it in the array in `src/tools/index.ts`.
+4. Register it in the array in `src/tools/crm/index.ts`, in the read → write → destructive ordering.
+5. Update the exact-set assertion in `src/tests/server.integration.test.ts`.
 
 Correlation, validation, timing, error mapping, redaction, retry, rate limiting, and circuit breaking are inherited automatically. For write tools, pass `retryable: false` on the HubSpot request and set `destructiveHint: true` / `idempotentHint: false` in the annotations.
 

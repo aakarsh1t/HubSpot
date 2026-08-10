@@ -1,107 +1,81 @@
-import { CreateAssociationTool } from './associations/create-association.tool.js';
-import { DeleteAssociationTool } from './associations/delete-association.tool.js';
-import { ListAssociationsTool } from './associations/list-associations.tool.js';
-import { ArchiveContactTool } from './contacts/archive-contact.tool.js';
-import { BatchArchiveContactsTool } from './contacts/batch-archive-contacts.tool.js';
-import { BatchCreateContactsTool } from './contacts/batch-create-contacts.tool.js';
-import { BatchReadContactsTool } from './contacts/batch-read-contacts.tool.js';
-import { BatchUpdateContactsTool } from './contacts/batch-update-contacts.tool.js';
-import { CreateContactTool } from './contacts/create-contact.tool.js';
-import { DeleteContactTool } from './contacts/delete-contact.tool.js';
-import { GetContactByEmailTool } from './contacts/get-contact-by-email.tool.js';
-import { GetContactTool } from './contacts/get-contact.tool.js';
-import { ListContactsTool } from './contacts/list-contacts.tool.js';
-import { MergeContactsTool } from './contacts/merge-contacts.tool.js';
-import { RestoreContactTool } from './contacts/restore-contact.tool.js';
-import { SearchContactsTool } from './contacts/search-contacts.tool.js';
-import { UpdateContactTool } from './contacts/update-contact.tool.js';
-import { CreateMeetingTool } from './engagements/create-meeting.tool.js';
-import { CreateNoteTool } from './engagements/create-note.tool.js';
-import { CreateTaskTool } from './engagements/create-task.tool.js';
-import { GetTimelineTool } from './engagements/get-timeline.tool.js';
-import { LogCallTool } from './engagements/log-call.tool.js';
-import { LogEmailTool } from './engagements/log-email.tool.js';
+import { BatchRecordsTool } from './batch-records.tool.js';
+import { CreateEngagementTool } from './create-engagement.tool.js';
+import { CreateRecordTool } from './create-record.tool.js';
+import { DeleteRecordTool } from './delete-record.tool.js';
+import { GetRecordTool } from './get-record.tool.js';
+import { GetTimelineTool } from './get-timeline.tool.js';
+import { ListPipelinesTool } from './list-pipelines.tool.js';
+import { ManageAssociationsTool } from './manage-associations.tool.js';
+import { ManagePropertiesTool } from './manage-properties.tool.js';
+import { MergeRecordsTool } from './merge-records.tool.js';
+import { RestoreRecordTool } from './restore-record.tool.js';
+import { SearchRecordsTool } from './search-records.tool.js';
+import { UpdateRecordTool } from './update-record.tool.js';
 import type { AssociationsService } from '../../services/associations.service.js';
-import type { ContactsService } from '../../services/contacts.service.js';
+import type { CrmService } from '../../services/crm.service.js';
 import type { EngagementsService } from '../../services/engagements.service.js';
+import type { PropertiesService } from '../../services/properties.service.js';
 import type { AnyToolDefinition } from '../../types/tool.types.js';
 
 export interface CrmToolDependencies {
-  readonly contacts: ContactsService;
+  readonly crm: CrmService;
   readonly associations: AssociationsService;
   readonly engagements: EngagementsService;
+  readonly properties: PropertiesService;
 }
 
 /**
- * The Contacts module tool catalogue.
+ * The CRM tool catalogue: thirteen tools covering contacts, companies, and
+ * deals in full.
  *
  * Ordering is intentional and is the cheapest lever available on tool
- * selection: read tools come first, writes next, destructive operations last.
- * Orchestrators weight earlier entries slightly, and the safest tools should
- * be the ones reached first.
+ * selection — orchestrators weight earlier entries slightly, so reads come
+ * first, then writes, then the operations that destroy data.
  *
- * Every destructive operation here — permanent delete, merge, batch archive,
- * disassociate — additionally requires an explicit literal-`true` confirmation
- * field in its input schema, so none of them can be triggered by paraphrase
- * alone.
+ * Object type is a parameter of every tool here rather than part of its name.
+ * That is what took this module from 77 entries to 13 without removing a single
+ * capability: HubSpot's own APIs are one surface parameterized by object type,
+ * so `hubspot_get_contact` / `_company` / `_deal` were three names for one
+ * endpoint. Supporting Tickets later adds a union member, not 26 more tools.
  */
-export function createContactTools(deps: CrmToolDependencies): AnyToolDefinition[] {
-  const { contacts, associations, engagements } = deps;
+export function createCrmTools(deps: CrmToolDependencies): AnyToolDefinition[] {
+  const { crm, associations, engagements, properties } = deps;
 
   return [
     // ---------------------------------------------------------------- reads
-    new GetContactTool(contacts),
-    new GetContactByEmailTool(contacts),
-    new SearchContactsTool(contacts),
-    new ListContactsTool(contacts),
-    new BatchReadContactsTool(contacts),
-    new ListAssociationsTool(associations),
+    new GetRecordTool(crm),
+    new SearchRecordsTool(crm),
     new GetTimelineTool(engagements),
+    new ListPipelinesTool(crm),
 
     // --------------------------------------------------------------- writes
-    new CreateContactTool(contacts),
-    new UpdateContactTool(contacts),
-    new BatchCreateContactsTool(contacts),
-    new BatchUpdateContactsTool(contacts),
-    new CreateAssociationTool(associations),
+    new CreateRecordTool(crm),
+    new UpdateRecordTool(crm),
+    new CreateEngagementTool(engagements),
+    new ManageAssociationsTool(associations),
+    new BatchRecordsTool(crm),
 
-    // ---------------------------------------------------------- engagements
-    new CreateNoteTool(engagements),
-    new CreateTaskTool(engagements),
-    new LogCallTool(engagements),
-    new CreateMeetingTool(engagements),
-    new LogEmailTool(engagements),
+    // ----------------------------------------------------------- admin/schema
+    new ManagePropertiesTool(properties),
 
     // ---------------------------------------------------------- destructive
-    new ArchiveContactTool(contacts),
-    new BatchArchiveContactsTool(contacts),
-    new RestoreContactTool(contacts),
-    new MergeContactsTool(contacts),
-    new DeleteAssociationTool(associations),
-    new DeleteContactTool(contacts),
+    new DeleteRecordTool(crm),
+    new RestoreRecordTool(crm),
+    new MergeRecordsTool(crm),
   ];
 }
 
-export { CreateContactTool } from './contacts/create-contact.tool.js';
-export { UpdateContactTool } from './contacts/update-contact.tool.js';
-export { ArchiveContactTool } from './contacts/archive-contact.tool.js';
-export { DeleteContactTool } from './contacts/delete-contact.tool.js';
-export { RestoreContactTool } from './contacts/restore-contact.tool.js';
-export { GetContactTool } from './contacts/get-contact.tool.js';
-export { GetContactByEmailTool } from './contacts/get-contact-by-email.tool.js';
-export { ListContactsTool } from './contacts/list-contacts.tool.js';
-export { SearchContactsTool } from './contacts/search-contacts.tool.js';
-export { MergeContactsTool } from './contacts/merge-contacts.tool.js';
-export { BatchCreateContactsTool } from './contacts/batch-create-contacts.tool.js';
-export { BatchUpdateContactsTool } from './contacts/batch-update-contacts.tool.js';
-export { BatchArchiveContactsTool } from './contacts/batch-archive-contacts.tool.js';
-export { BatchReadContactsTool } from './contacts/batch-read-contacts.tool.js';
-export { ListAssociationsTool } from './associations/list-associations.tool.js';
-export { CreateAssociationTool } from './associations/create-association.tool.js';
-export { DeleteAssociationTool } from './associations/delete-association.tool.js';
-export { CreateNoteTool } from './engagements/create-note.tool.js';
-export { CreateTaskTool } from './engagements/create-task.tool.js';
-export { LogCallTool } from './engagements/log-call.tool.js';
-export { CreateMeetingTool } from './engagements/create-meeting.tool.js';
-export { LogEmailTool } from './engagements/log-email.tool.js';
-export { GetTimelineTool } from './engagements/get-timeline.tool.js';
+export { GetRecordTool } from './get-record.tool.js';
+export { SearchRecordsTool } from './search-records.tool.js';
+export { CreateRecordTool } from './create-record.tool.js';
+export { UpdateRecordTool } from './update-record.tool.js';
+export { DeleteRecordTool } from './delete-record.tool.js';
+export { RestoreRecordTool } from './restore-record.tool.js';
+export { MergeRecordsTool } from './merge-records.tool.js';
+export { BatchRecordsTool } from './batch-records.tool.js';
+export { ManageAssociationsTool } from './manage-associations.tool.js';
+export { CreateEngagementTool } from './create-engagement.tool.js';
+export { GetTimelineTool } from './get-timeline.tool.js';
+export { ManagePropertiesTool } from './manage-properties.tool.js';
+export { ListPipelinesTool } from './list-pipelines.tool.js';
+export * from './record-view.js';

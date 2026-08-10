@@ -91,9 +91,11 @@ describe('ToolRegistry.invoke', () => {
     const result = await registry.invoke(tool, { value: 'hello' }, { signal, sessionId: null });
 
     expect(result.isError).toBeUndefined();
+    // Compact, not pretty-printed: the only consumer is a model, and
+    // indentation is tokens the orchestrator pays for on every tool call.
     expect(result.content[0]).toEqual({
       type: 'text',
-      text: JSON.stringify({ echoed: 'hello' }, null, 2),
+      text: '{"echoed":"hello"}',
     });
   });
 

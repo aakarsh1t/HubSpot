@@ -293,7 +293,11 @@ describe('MCP Streamable HTTP endpoint', () => {
     const names = body.result.tools.map((tool) => tool.name).sort();
 
     expect(names).toEqual(
-      expect.arrayContaining(['hubspot_ping', 'hubspot_test_connection', 'mcp_server_info'])
+      expect.arrayContaining([
+        'hubspot_diagnostics',
+        'hubspot_get_record',
+        'hubspot_search_records',
+      ])
     );
     expect(names).toHaveLength(container.toolRegistry.size);
     // Every tool must convert cleanly to a JSON Schema object — this is what
@@ -304,7 +308,7 @@ describe('MCP Streamable HTTP endpoint', () => {
     }
   });
 
-  it('exposes the full contacts module', async () => {
+  it('exposes the whole CRM surface as one object-type-parameterised catalogue', async () => {
     const response = await server.app.inject({
       method: 'POST',
       url: '/mcp',
@@ -314,40 +318,34 @@ describe('MCP Streamable HTTP endpoint', () => {
 
     const names = response
       .json<{ result: { tools: { name: string }[] } }>()
-      .result.tools.map((tool) => tool.name);
+      .result.tools.map((tool) => tool.name)
+      .sort();
 
-    // Every operation the Contacts milestone promised, asserted by name so a
-    // rename or an accidental drop from the registry fails loudly.
+    // Asserted as an exact set, not a subset. The catalogue is the contract an
+    // orchestrator reads on every turn, and its *size* is the thing that got
+    // fixed here — a subset assertion would let entries creep back in
+    // unnoticed, which is precisely the regression this guards.
     expect(names).toEqual(
-      expect.arrayContaining([
-        'hubspot_create_contact',
-        'hubspot_update_contact',
-        'hubspot_archive_contact',
-        'hubspot_delete_contact_permanently',
-        'hubspot_restore_contact',
-        'hubspot_get_contact',
-        'hubspot_get_contact_by_email',
-        'hubspot_list_contacts',
-        'hubspot_search_contacts',
-        'hubspot_merge_contacts',
-        'hubspot_batch_create_contacts',
-        'hubspot_batch_update_contacts',
-        'hubspot_batch_archive_contacts',
-        'hubspot_batch_read_contacts',
-        'hubspot_list_contact_associations',
-        'hubspot_associate_contact',
-        'hubspot_disassociate_contact',
-        'hubspot_create_contact_note',
-        'hubspot_create_contact_task',
-        'hubspot_log_contact_call',
-        'hubspot_create_contact_meeting',
-        'hubspot_log_contact_email',
-        'hubspot_get_contact_timeline',
-      ])
+      [
+        'hubspot_batch_records',
+        'hubspot_create_engagement',
+        'hubspot_create_record',
+        'hubspot_delete_record',
+        'hubspot_diagnostics',
+        'hubspot_get_record',
+        'hubspot_get_timeline',
+        'hubspot_list_pipelines',
+        'hubspot_manage_associations',
+        'hubspot_manage_properties',
+        'hubspot_merge_records',
+        'hubspot_restore_record',
+        'hubspot_search_records',
+        'hubspot_update_record',
+      ].sort()
     );
   });
 
-  it('exposes the full Companies and Deals modules', async () => {
+  it('no longer exposes a separate tool per object type', async () => {
     const response = await server.app.inject({
       method: 'POST',
       url: '/mcp',
@@ -359,31 +357,34 @@ describe('MCP Streamable HTTP endpoint', () => {
       .json<{ result: { tools: { name: string }[] } }>()
       .result.tools.map((tool) => tool.name);
 
-    expect(names).toEqual(
-      expect.arrayContaining([
-        'hubspot_create_company',
-        'hubspot_update_company',
-        'hubspot_get_company',
-        'hubspot_search_companies',
-        'hubspot_merge_companies',
-        'hubspot_delete_company_permanently',
-        'hubspot_create_deal',
-        'hubspot_update_deal',
-        'hubspot_get_deal',
-        'hubspot_search_deals',
-        'hubspot_list_deal_pipelines',
-        'hubspot_move_deal_stage',
-        'hubspot_change_deal_pipeline',
-        'hubspot_set_deal_forecast_category',
-        'hubspot_merge_deals',
-        'hubspot_delete_deal_permanently',
-        'hubspot_list_properties',
-        'hubspot_get_property_history',
-      ])
-    );
+    // Each of these was one of three names for a single HubSpot endpoint. They
+    // are reachable now as `objectType` on the generic tool, and their absence
+    // is what keeps the catalogue at 14 entries instead of 80.
+    for (const retired of [
+      'hubspot_get_contact',
+      'hubspot_get_company',
+      'hubspot_get_deal',
+      'hubspot_create_contact',
+      'hubspot_search_companies',
+      'hubspot_batch_update_deals',
+      'hubspot_create_contact_note',
+      'hubspot_move_deal_stage',
+      'hubspot_test_connection',
+      'mcp_server_info',
+    ]) {
+      expect(names).not.toContain(retired);
+    }
   });
 
-  it('does not yet expose a Tickets module', async () => {
+  it('keeps the catalogue small enough for an orchestrator to rank cheaply', () => {
+    // Every tool's name, description, and full JSON Schema is re-sent to the
+    // agent on every request and ranked before it can act, so catalogue size is
+    // a direct, per-turn latency cost. The ceiling is deliberately well above
+    // the current 14 — it is a regression guard, not a target.
+    expect(container.toolRegistry.size).toBeLessThanOrEqual(20);
+  });
+
+  it('does not yet expose a Tickets object module', async () => {
     const response = await server.app.inject({
       method: 'POST',
       url: '/mcp',
@@ -395,36 +396,11 @@ describe('MCP Streamable HTTP endpoint', () => {
       .json<{ result: { tools: { name: string }[] } }>()
       .result.tools.map((tool) => tool.name);
 
-    // Guards the remaining scope: a dedicated Tickets object module (create/
-    // update/search/etc. FOR tickets) is a later milestone. Tickets already
-    // appear legitimately today as an *associable* type on the other three
-    // modules (e.g. hubspot_associate_contact with toObjectType: "tickets"),
-    // so the filter excludes association tools rather than the word "ticket".
-    const outOfScope = names.filter((name) => /ticket/i.test(name) && !name.includes('associat'));
-
-    expect(outOfScope).toEqual([]);
-  });
-
-  it('executes a local tool call', async () => {
-    const response = await server.app.inject({
-      method: 'POST',
-      url: '/mcp',
-      headers: mcpHeaders,
-      payload: {
-        jsonrpc: '2.0',
-        id: 4,
-        method: 'tools/call',
-        params: { name: 'mcp_server_info', arguments: {} },
-      },
-    });
-
-    const body = response.json<{
-      result: { isError?: boolean; structuredContent: { toolCount: number; authMode: string } };
-    }>();
-
-    expect(body.result.isError).toBeUndefined();
-    expect(body.result.structuredContent.toolCount).toBe(container.toolRegistry.size);
-    expect(body.result.structuredContent.authMode).toBe('private_app');
+    // Guards the remaining scope: tickets are not a value of `objectType` on
+    // the record tools yet. They are already reachable as an *associable* type
+    // (hubspot_manage_associations with toObjectType "tickets") and as a
+    // pipeline object type, neither of which puts a ticket noun in a tool name.
+    expect(names.filter((name) => /ticket/i.test(name))).toEqual([]);
   });
 
   it('executes a HubSpot-backed tool call against a faked upstream', async () => {
@@ -440,16 +416,27 @@ describe('MCP Streamable HTTP endpoint', () => {
         jsonrpc: '2.0',
         id: 5,
         method: 'tools/call',
-        params: { name: 'hubspot_test_connection', arguments: {} },
+        params: { name: 'hubspot_diagnostics', arguments: {} },
       },
     });
 
     const body = response.json<{
-      result: { structuredContent: { status: string; portalId: number } };
+      result: {
+        isError?: boolean;
+        structuredContent: {
+          status: string;
+          portalId: number;
+          server: { toolCount: number; sessionMode: string };
+        };
+      };
     }>();
 
+    expect(body.result.isError).toBeUndefined();
     expect(body.result.structuredContent.status).toBe('connected');
     expect(body.result.structuredContent.portalId).toBe(424242);
+    // Server self-description now rides along with the connectivity check
+    // rather than living in a second tool the orchestrator has to choose.
+    expect(body.result.structuredContent.server.toolCount).toBe(container.toolRegistry.size);
   });
 
   it('reports an upstream failure as a successful call with a failed status', async () => {
@@ -463,7 +450,7 @@ describe('MCP Streamable HTTP endpoint', () => {
         jsonrpc: '2.0',
         id: 6,
         method: 'tools/call',
-        params: { name: 'hubspot_test_connection', arguments: {} },
+        params: { name: 'hubspot_diagnostics', arguments: {} },
       },
     });
 
@@ -489,7 +476,7 @@ describe('MCP Streamable HTTP endpoint', () => {
         jsonrpc: '2.0',
         id: 7,
         method: 'tools/call',
-        params: { name: 'hubspot_test_connection', arguments: { includeAccountDetails: false } },
+        params: { name: 'hubspot_diagnostics', arguments: { includeAccountDetails: false } },
       },
     });
 

@@ -14,8 +14,13 @@ import type {
   MeetingBody,
   NoteBody,
   TaskBody,
-  TimelineOptions,
-} from '../schemas/engagement.schema.js';
+} from '../schemas/crm.schema.js';
+
+/** What `getTimeline` needs to know: which activity types, and how deep. */
+export interface TimelineOptions {
+  readonly types: readonly EngagementObjectType[];
+  readonly limitPerType: number;
+}
 
 interface RawEngagement {
   readonly id: string;

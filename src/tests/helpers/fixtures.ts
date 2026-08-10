@@ -2,10 +2,28 @@ import { pino } from 'pino';
 import type { Logger } from 'pino';
 import type { AccessToken, AuthDescriptor, HubSpotTokenProvider } from '../../types/auth.types.js';
 import type { AppConfig } from '../../types/config.types.js';
+import type { ToolExecutionContext } from '../../types/tool.types.js';
 
 /** Silent logger — tests assert on behaviour, not on log noise. */
 export function testLogger(): Logger {
   return pino({ level: 'silent' });
+}
+
+/**
+ * Execution context for invoking a tool directly.
+ *
+ * Calling `execute` rather than going through `ToolRegistry` keeps these tests
+ * about the tool's own behaviour — routing, request shaping, response shaping —
+ * with the protocol wrapper covered separately in `tool-registry.test.ts`.
+ */
+export function toolContext(toolName = 'test-tool'): ToolExecutionContext {
+  return {
+    requestId: 'req-test',
+    sessionId: null,
+    toolName,
+    signal: new AbortController().signal,
+    logger: testLogger(),
+  };
 }
 
 /** Minimal valid environment for `loadConfig`, overridable per test. */

@@ -7,9 +7,7 @@ import { HubSpotClient } from '../clients/hubspot.client.js';
 import { CircuitBreaker } from '../middleware/circuit-breaker.js';
 import { TokenBucketRateLimiter } from '../middleware/rate-limiter.js';
 import { AssociationsService } from '../services/associations.service.js';
-import { CompaniesService } from '../services/companies.service.js';
-import { ContactsService } from '../services/contacts.service.js';
-import { DealsService } from '../services/deals.service.js';
+import { CrmService } from '../services/crm.service.js';
 import { EngagementsService } from '../services/engagements.service.js';
 import { HubSpotHealthService } from '../services/hubspot-health.service.js';
 import { PropertiesService } from '../services/properties.service.js';
@@ -84,13 +82,11 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
 
   // CRM services. Each depends only on the HubSpot client, so every one of
   // them is unit-testable against a fake without touching the network.
-  // Contacts, Companies, and Deals each compose CrmObjectService for the
-  // generic CRUD/search/batch/merge/restore behaviour that is identical
-  // across HubSpot's Objects API regardless of object type; Associations,
-  // Engagements, and Properties are shared outright across all three.
-  const contactsService = new ContactsService({ client: hubspotClient, logger });
-  const companiesService = new CompaniesService({ client: hubspotClient, logger });
-  const dealsService = new DealsService({ client: hubspotClient, logger });
+  // `CrmService` holds one generic `CrmObjectService` per object type and
+  // hands out the right one at call time — which is what lets a single tool
+  // serve contacts, companies, and deals. Associations, Engagements, and
+  // Properties were already generic across all three.
+  const crmService = new CrmService({ client: hubspotClient, logger });
   const associationsService = new AssociationsService({ client: hubspotClient, logger });
   const engagementsService = new EngagementsService({ client: hubspotClient, logger });
   const propertiesService = new PropertiesService({ client: hubspotClient, logger });
@@ -100,9 +96,7 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
     createTools({
       config,
       healthService,
-      contactsService,
-      companiesService,
-      dealsService,
+      crmService,
       associationsService,
       engagementsService,
       propertiesService,
@@ -122,9 +116,7 @@ export function buildContainer(config: AppConfig, overrides: CompositionOverride
     circuitBreaker,
     hubspotClient,
     healthService,
-    contactsService,
-    companiesService,
-    dealsService,
+    crmService,
     associationsService,
     engagementsService,
     propertiesService,

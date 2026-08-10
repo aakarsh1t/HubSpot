@@ -17,14 +17,20 @@ export interface McpServerDependencies {
  * concise, concrete, and explicit about ordering — rather than as prose about
  * the implementation.
  */
-const SERVER_INSTRUCTIONS = `This server exposes HubSpot CRM capabilities over the Model Context Protocol.
+const SERVER_INSTRUCTIONS = `This server exposes full administrative HubSpot CRM control over the Model Context Protocol.
+
+Most tools take an "objectType" parameter — "contacts", "companies", or "deals" — instead of there being a separate tool per object type. Pick the tool by the ACTION you want, then set objectType. There is no hubspot_get_contact; it is hubspot_get_record with objectType "contacts".
 
 Guidance:
-- Call "hubspot_test_connection" first when a HubSpot request fails or when you are unsure the integration is configured. It reports the exact problem and its remediation.
-- Use "hubspot_ping" for a fast availability check when you only need to know whether HubSpot is responding.
-- Use "mcp_server_info" to discover which tools are available and which environment you are connected to.
+- Identity known (an ID or an email) -> hubspot_get_record. Searching by criteria, or listing -> hubspot_search_records.
+- Acting on more than a couple of records -> hubspot_batch_records, not a loop of single-record calls. One round trip instead of N.
+- "Property does not exist" or an unfamiliar field -> hubspot_manage_properties with action "list" to discover the portal's real internal property names.
+- Moving a deal -> hubspot_list_pipelines first for valid stage IDs, then hubspot_update_record. Set "pipeline" alongside "dealstage" when the target stage is in a different pipeline.
+- Anything failing, or unsure the integration is configured -> hubspot_diagnostics. It reports the exact problem and its remediation rather than repeating the failure.
 
-All tools are read-only and safe to retry. Errors are returned as structured results containing a machine-readable code and a requestId; quote the requestId when escalating a failure to a human.`;
+These tools WRITE and DELETE real CRM data. Destructive operations - permanent deletion, merges, bulk archive, and deleting a property definition - each require an explicit confirmation field, and every one of them is irreversible through this API. Confirm intent with the user before setting a confirmation flag; do not set one to work around a validation error.
+
+Errors are returned as structured results containing a machine-readable code, whether the failure is retryable, and a requestId; quote the requestId when escalating to a human.`;
 
 /**
  * Constructs the MCP server and binds the tool catalogue to it.

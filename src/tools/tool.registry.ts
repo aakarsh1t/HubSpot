@@ -183,7 +183,12 @@ export class ToolRegistry {
     // Text content is what every MCP client can render; `structuredContent` is
     // the machine-readable twin, emitted only when the tool declares an output
     // schema (the SDK validates it against that schema).
-    const text = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
+    //
+    // Serialized compactly rather than pretty-printed. The only consumer is a
+    // model, which parses both identically, and indentation on a 100-record
+    // page is a meaningful slice of the tokens the orchestrator has to read
+    // back before it can answer — paid on every single tool call.
+    const text = typeof output === 'string' ? output : JSON.stringify(output);
 
     return {
       content: [{ type: 'text', text }],
@@ -214,7 +219,7 @@ export class ToolRegistry {
 
     return {
       isError: true,
-      content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+      content: [{ type: 'text', text: JSON.stringify(payload) }],
     };
   }
 }

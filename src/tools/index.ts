@@ -1,15 +1,8 @@
-import { PingHubSpotTool } from './connection/ping.tool.js';
-import { createCompanyTools } from './crm/companies/index.js';
-import { createContactTools } from './crm/index.js';
-import { createDealTools } from './crm/deals/index.js';
-import { createPropertyTools } from './crm/properties/index.js';
-import { TestConnectionTool } from './connection/test-connection.tool.js';
-import { ServerInfoTool } from './system/server-info.tool.js';
+import { createCrmTools } from './crm/index.js';
+import { DiagnosticsTool } from './system/diagnostics.tool.js';
 import { type ToolRegistry } from './tool.registry.js';
 import type { AssociationsService } from '../services/associations.service.js';
-import type { CompaniesService } from '../services/companies.service.js';
-import type { ContactsService } from '../services/contacts.service.js';
-import type { DealsService } from '../services/deals.service.js';
+import type { CrmService } from '../services/crm.service.js';
 import type { EngagementsService } from '../services/engagements.service.js';
 import type { HubSpotHealthService } from '../services/hubspot-health.service.js';
 import type { PropertiesService } from '../services/properties.service.js';
@@ -17,21 +10,13 @@ import type { AppConfig } from '../types/config.types.js';
 import type { AnyToolDefinition } from '../types/tool.types.js';
 
 export { ToolRegistry } from './tool.registry.js';
-export { TestConnectionTool } from './connection/test-connection.tool.js';
-export { PingHubSpotTool } from './connection/ping.tool.js';
-export { ServerInfoTool } from './system/server-info.tool.js';
-
-export { createContactTools, type CrmToolDependencies } from './crm/index.js';
-export { createCompanyTools, type CompanyToolDependencies } from './crm/companies/index.js';
-export { createDealTools, type DealToolDependencies } from './crm/deals/index.js';
-export { createPropertyTools, type PropertyToolDependencies } from './crm/properties/index.js';
+export { DiagnosticsTool } from './system/diagnostics.tool.js';
+export { createCrmTools, type CrmToolDependencies } from './crm/index.js';
 
 export interface ToolFactoryDependencies {
   readonly config: AppConfig;
   readonly healthService: HubSpotHealthService;
-  readonly contactsService: ContactsService;
-  readonly companiesService: CompaniesService;
-  readonly dealsService: DealsService;
+  readonly crmService: CrmService;
   readonly associationsService: AssociationsService;
   readonly engagementsService: EngagementsService;
   readonly propertiesService: PropertiesService;
@@ -41,39 +26,35 @@ export interface ToolFactoryDependencies {
 /**
  * The single place where the tool catalogue is declared.
  *
- * Diagnostics come first so an agent troubleshooting a failure reaches
- * `hubspot_test_connection` before anything else, followed by the three CRM
- * object modules (Contacts, Companies, Deals) and the cross-object property
- * tools. A future object type — Tickets — becomes one more `create*Tools`
- * factory here and one more directory under `src/tools/crm/`, with no other
- * file changing.
+ * **Fourteen tools, deliberately.** Every one of them is full-privilege: this
+ * server is wired to an administrative Copilot Studio agent, so nothing is held
+ * back — permanent deletion, merges, bulk archives, and portal schema changes
+ * are all reachable. What was removed is duplication, not capability.
+ *
+ * The catalogue used to hold 80 tools, which is the dominant cost in an agent's
+ * per-turn latency: every tool's name, description, and full JSON Schema is
+ * re-sent to the orchestrator on *every* request, and the model must rank all
+ * of them before it can act. Eighty near-identical entries also degrade
+ * selection accuracy — `hubspot_get_contact`, `hubspot_get_company`, and
+ * `hubspot_get_deal` compete with each other for the same intent, and a wrong
+ * pick costs a whole round trip to discover.
+ *
+ * The fix was to make object type a *parameter* rather than part of the tool
+ * name, which is what HubSpot's own API does. That collapsed 77 CRM tools into
+ * 13 and 3 diagnostics tools into 1, with no operation lost.
+ *
+ * Diagnostics comes first so an agent troubleshooting a failure reaches
+ * `hubspot_diagnostics` before anything else.
  */
 export function createTools(deps: ToolFactoryDependencies): AnyToolDefinition[] {
   return [
-    new TestConnectionTool(deps.healthService),
-    new PingHubSpotTool(deps.healthService),
     // Reads the registry lazily: this tool is inside the very list being built.
-    new ServerInfoTool(deps.config, () => deps.registry.list()),
+    new DiagnosticsTool(deps.config, deps.healthService, () => deps.registry.list()),
 
-    ...createContactTools({
-      contacts: deps.contactsService,
+    ...createCrmTools({
+      crm: deps.crmService,
       associations: deps.associationsService,
       engagements: deps.engagementsService,
-    }),
-
-    ...createCompanyTools({
-      companies: deps.companiesService,
-      associations: deps.associationsService,
-      engagements: deps.engagementsService,
-    }),
-
-    ...createDealTools({
-      deals: deps.dealsService,
-      associations: deps.associationsService,
-      engagements: deps.engagementsService,
-    }),
-
-    ...createPropertyTools({
       properties: deps.propertiesService,
     }),
   ];
